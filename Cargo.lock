@@ -786,7 +786,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "krtc"
+name = "kbas"
 version = "0.1.0"
 dependencies = [
  "async-trait",
