@@ -54,11 +54,11 @@ impl OrderBookService for Binance {
         let pair = pair.join("");
         //TODO: add comment to explain why we do this
         let stream_pair = pair.to_lowercase();
+        let snapshot_pair = pair.to_uppercase();
+
         let (ws_stream_rx, stream_handle) =
             spawn_order_book_stream(stream_pair, order_book_stream_buffer).await?;
 
-        //TODO: add a comment to explain why we do this
-        let snapshot_pair = pair.to_uppercase();
         let order_book_update_handle = spawn_stream_handler(
             snapshot_pair,
             order_book_depth,
@@ -90,15 +90,16 @@ mod tests {
     async fn test_spawn_order_book_service() {
         let atomic_counter_0 = Arc::new(AtomicU32::new(0));
         let atomic_counter_1 = atomic_counter_0.clone();
-        let target_counter = 1000;
+        let target_counter = 2100;
 
         let (tx, mut rx) = tokio::sync::mpsc::channel::<PriceLevelUpdate>(500);
         let mut join_handles = Binance::spawn_order_book_service(["eth", "btc"], 1000, 500, tx)
             .await
-            .expect("handle this error");
+            .expect("TODO: handle this error");
 
         let price_level_update_handle = tokio::spawn(async move {
             while let Some(_) = rx.recv().await {
+                dbg!(atomic_counter_0.load(Ordering::Relaxed));
                 atomic_counter_0.fetch_add(1, Ordering::Relaxed);
                 if atomic_counter_0.load(Ordering::Relaxed) >= target_counter {
                     break;

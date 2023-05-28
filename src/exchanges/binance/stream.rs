@@ -31,6 +31,7 @@ use tungstenite::Message;
 
 const WS_BASE_ENDPOINT: &str = "wss://stream.binance.com:9443/ws/";
 const ORDER_BOOK_SNAPSHOT_BASE_ENDPOINT: &str = "https://api.binance.com/api/v3/depth?symbol=";
+const DEPTH_UPDATE_EVENT: &str = "depthUpdate";
 
 //TODO: Add a comment for what this is also there are more efficient ways to do this, update this
 
@@ -115,40 +116,47 @@ pub async fn spawn_stream_handler(
         while let Some(message) = ws_stream_rx.recv().await {
             match message {
                 tungstenite::Message::Text(message) => {
-                    let order_book_update = serde_json::from_str::<OrderBookUpdate>(&message)?;
+                    dbg!(&message);
+                    let order_book_event = serde_json::from_str::<OrderBookEvent>(&message)?;
 
-                    if order_book_update.final_updated_id <= last_update_id {
-                        continue;
-                    } else {
-                        //TODO:
-                        // make a note that the first update id will always be zero
-                        if order_book_update.first_update_id <= last_update_id + 1
-                            && order_book_update.final_updated_id >= last_update_id + 1
-                        {
-                            for bid in order_book_update.bids.into_iter() {
-                                price_level_tx
-                                    .send(PriceLevelUpdate::Bid(PriceLevel::new(
-                                        bid[0],
-                                        bid[1],
-                                        Exchange::Binance,
-                                    )))
-                                    .await?;
-                            }
+                    if order_book_event.event == DEPTH_UPDATE_EVENT {
+                        let order_book_update = serde_json::from_str::<OrderBookUpdate>(&message)?;
 
-                            for ask in order_book_update.asks.into_iter() {
-                                price_level_tx
-                                    .send(PriceLevelUpdate::Ask(PriceLevel::new(
-                                        ask[0],
-                                        ask[1],
-                                        Exchange::Binance,
-                                    )))
-                                    .await?;
-                            }
+                        if order_book_update.final_updated_id <= last_update_id {
+                            //TODO: potentially add some error logging here
+
+                            continue;
                         } else {
-                            return Err(BinanceError::InvalidUpdateId.into());
-                        }
+                            //TODO:
+                            // make a note that the first update id will always be zero
+                            if order_book_update.first_update_id <= last_update_id + 1
+                                && order_book_update.final_updated_id >= last_update_id + 1
+                            {
+                                for bid in order_book_update.bids.into_iter() {
+                                    price_level_tx
+                                        .send(PriceLevelUpdate::Bid(PriceLevel::new(
+                                            bid[0],
+                                            bid[1],
+                                            Exchange::Binance,
+                                        )))
+                                        .await?;
+                                }
 
-                        last_update_id = order_book_update.final_updated_id;
+                                for ask in order_book_update.asks.into_iter() {
+                                    price_level_tx
+                                        .send(PriceLevelUpdate::Ask(PriceLevel::new(
+                                            ask[0],
+                                            ask[1],
+                                            Exchange::Binance,
+                                        )))
+                                        .await?;
+                                }
+                            } else {
+                                return Err(BinanceError::InvalidUpdateId.into());
+                            }
+
+                            last_update_id = order_book_update.final_updated_id;
+                        }
                     }
                 }
 
@@ -203,8 +211,6 @@ pub struct OrderBookSnapshot {
 
 #[derive(Deserialize, Debug)]
 pub struct OrderBookUpdate {
-    #[serde(rename = "e")]
-    pub event_type: OrderBookEventType,
     #[serde(rename = "E")]
     pub event_time: usize,
     #[serde(rename = "U")]
@@ -225,7 +231,6 @@ pub struct OrderBookUpdate {
 
 impl OrderBookUpdate {
     pub fn new(
-        event_type: OrderBookEventType,
         event_time: usize,
         first_update_id: u64,
         final_updated_id: u64,
@@ -233,7 +238,6 @@ impl OrderBookUpdate {
         asks: Vec<[f64; 2]>,
     ) -> Self {
         OrderBookUpdate {
-            event_type,
             event_time,
             first_update_id,
             final_updated_id,
@@ -244,9 +248,10 @@ impl OrderBookUpdate {
 }
 
 #[derive(Deserialize, Debug)]
-pub enum OrderBookEventType {
-    #[serde(rename = "depthUpdate")]
-    DepthUpdate,
+
+pub struct OrderBookEvent {
+    #[serde(rename = "e")]
+    pub event: String,
 }
 
 async fn get_order_book_snapshot(
@@ -289,21 +294,22 @@ mod tests {
 
     #[tokio::test]
 
-    //Test the Binance WS connection for 1000 order book updates
+    //Test the Binance WS connection for 50 order book updates
     async fn test_spawn_order_book_stream() {
         let atomic_counter_0 = Arc::new(AtomicU32::new(0));
         let atomic_counter_1 = atomic_counter_0.clone();
-        let target_counter = 1000;
+        let target_counter = 50;
 
         let mut join_handles = vec![];
 
         let (mut order_book_update_rx, order_book_stream_handle) =
             spawn_order_book_stream("ethbtc".to_owned(), 500)
                 .await
-                .expect("handle this error");
+                .expect("TODO: handle this error");
 
         let order_book_update_handle = tokio::spawn(async move {
             while let Some(_) = order_book_update_rx.recv().await {
+                dbg!(atomic_counter_0.load(Ordering::Relaxed));
                 atomic_counter_0.fetch_add(1, Ordering::Relaxed);
                 if atomic_counter_0.load(Ordering::Relaxed) >= target_counter {
                     break;

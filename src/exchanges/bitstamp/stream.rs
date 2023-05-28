@@ -26,6 +26,7 @@ const WS_BASE_ENDPOINT: &str = "wss://ws.bitstamp.net/";
 const SUBSCRIBE_EVENT: &str = "bts:subscribe";
 const DIFF_ORDER_BOOK: &str = "diff_order_book";
 const ORDER_BOOK_SNAPSHOT_BASE_ENDPOINT: &str = "https://www.bitstamp.net/api/v2/order_book/";
+const DATA_EVENT: &str = "data";
 //TODO: Add a comment for what this is also there are more efficent ways to do this, update this
 const GET_ORDER_BOOK_SNAPSHOT: Vec<u8> = vec![];
 
@@ -135,46 +136,46 @@ pub async fn spawn_stream_handler(
 ) -> Result<JoinHandle<Result<(), OrderBookError>>, OrderBookError> {
     let order_book_update_handle = tokio::spawn(async move {
         //TODO: update heuristic to check if orders are gtg
-        // let mut last_update_id = 0;
+        let mut last_microtimestamp = 0;
 
         while let Some(message) = ws_stream_rx.recv().await {
             match message {
                 tungstenite::Message::Text(message) => {
-                    // let order_book_update = serde_json::from_str::<OrderBookUpdate>(&message)?;
+                    let order_book_event = serde_json::from_str::<OrderBookEvent>(&message)?;
 
-                    // if order_book_update.final_updated_id <= last_update_id {
-                    //     continue;
-                    // } else {
-                    //     //TODO:
-                    //     // make a note that the first update id will always be zero
-                    //     if order_book_update.first_update_id <= last_update_id + 1
-                    //         && order_book_update.final_updated_id >= last_update_id + 1
-                    //     {
-                    //         for bid in order_book_update.bids.into_iter() {
-                    //             price_level_tx
-                    //                 .send(PriceLevelUpdate::Bid(PriceLevel::new(
-                    //                     bid[0],
-                    //                     bid[1],
-                    //                     Exchange::Binance,
-                    //                 )))
-                    //                 .await?;
-                    //         }
+                    if order_book_event.event == DATA_EVENT {
+                        dbg!(&message);
+                        let order_book_update = serde_json::from_str::<OrderBookUpdate>(&message)?;
 
-                    //         for ask in order_book_update.asks.into_iter() {
-                    //             price_level_tx
-                    //                 .send(PriceLevelUpdate::Ask(PriceLevel::new(
-                    //                     ask[0],
-                    //                     ask[1],
-                    //                     Exchange::Binance,
-                    //                 )))
-                    //                 .await?;
-                    //         }
-                    //     } else {
-                    //         return Err(BinanceError::InvalidUpdateId.into());
-                    //     }
+                        let order_book_data = order_book_update.data;
 
-                    // last_update_id = order_book_update.final_updated_id;
-                    // }
+                        if order_book_data.microtimestamp <= last_microtimestamp {
+                            //TODO: potentially add some error logging here
+                            continue;
+                        } else {
+                            for bid in order_book_data.bids.into_iter() {
+                                price_level_tx
+                                    .send(PriceLevelUpdate::Bid(PriceLevel::new(
+                                        bid[0],
+                                        bid[1],
+                                        Exchange::Binance,
+                                    )))
+                                    .await?;
+                            }
+
+                            for ask in order_book_data.asks.into_iter() {
+                                price_level_tx
+                                    .send(PriceLevelUpdate::Ask(PriceLevel::new(
+                                        ask[0],
+                                        ask[1],
+                                        Exchange::Binance,
+                                    )))
+                                    .await?;
+                            }
+
+                            last_microtimestamp = order_book_data.microtimestamp;
+                        }
+                    }
                 }
 
                 tungstenite::Message::Binary(message) => {
@@ -228,7 +229,7 @@ pub struct OrderBookSnapshot {
         rename = "microtimestamp",
         deserialize_with = "exchange_utils::convert_from_string_to_u64"
     )]
-    micro_timestamp: u64,
+    microtimestamp: u64,
     #[serde(
         rename = "bids",
         deserialize_with = "exchange_utils::convert_array_items_to_f64"
@@ -242,25 +243,38 @@ pub struct OrderBookSnapshot {
 }
 
 #[derive(Deserialize, Debug)]
+
+pub struct OrderBookEvent {
+    pub event: String,
+}
+
+#[derive(Deserialize, Debug)]
 pub struct OrderBookUpdate {
-    // #[serde(rename = "e")]
-    // pub event_type: OrderBookEventType,
-    // #[serde(rename = "E")]
-    // pub event_time: usize,
-    // #[serde(rename = "U")]
-    // pub first_update_id: u64, //NOTE: not positive what the largest order id from the exchange will possibly grow to, it can probably be covered by u32, but using u64 just to be safe
-    // #[serde(rename = "u")]
-    // pub final_updated_id: u64,
-    // #[serde(
-    //     rename = "b",
-    //     deserialize_with = "exchange_utils::convert_array_items_to_f64"
-    // )]
-    // pub bids: Vec<[f64; 2]>,
-    // #[serde(
-    //     rename = "a",
-    //     deserialize_with = "exchange_utils::convert_array_items_to_f64"
-    // )]
-    // pub asks: Vec<[f64; 2]>,
+    pub data: OrderBookUpdateData,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct OrderBookUpdateData {
+    #[serde(
+        rename = "timestamp",
+        deserialize_with = "exchange_utils::convert_from_string_to_u64"
+    )]
+    timestamp: u64,
+    #[serde(
+        rename = "microtimestamp",
+        deserialize_with = "exchange_utils::convert_from_string_to_u64"
+    )]
+    microtimestamp: u64,
+    #[serde(
+        rename = "bids",
+        deserialize_with = "exchange_utils::convert_array_items_to_f64"
+    )]
+    pub bids: Vec<[f64; 2]>,
+    #[serde(
+        rename = "asks",
+        deserialize_with = "exchange_utils::convert_array_items_to_f64"
+    )]
+    pub asks: Vec<[f64; 2]>,
 }
 
 // impl OrderBookUpdate {
@@ -281,12 +295,6 @@ pub struct OrderBookUpdate {
 //             asks,
 //         }
 //     }
-// }
-
-// #[derive(Deserialize, Debug)]
-// pub enum OrderBookEventType {
-//     #[serde(rename = "depthUpdate")]
-//     DepthUpdate,
 // }
 
 async fn get_order_book_snapshot(pair: &str) -> Result<OrderBookSnapshot, OrderBookError> {
@@ -319,20 +327,20 @@ mod tests {
     use futures::FutureExt;
     #[tokio::test]
 
-    //Test the Bitstamp WS connection for 1000 price level updates
     async fn test_spawn_order_book_stream() {
         let atomic_counter_0 = Arc::new(AtomicU32::new(0));
         let atomic_counter_1 = atomic_counter_0.clone();
-        let target_counter = 1000;
+        let target_counter = 50;
         let mut join_handles = vec![];
 
-        let (mut order_book_update_rx, mut order_book_stream_handle) =
+        let (mut order_book_update_rx, order_book_stream_handle) =
             spawn_order_book_stream("ethbtc".to_owned(), 500)
                 .await
-                .expect("handle this error");
+                .expect("TODO: handle this error");
 
         let order_book_update_handle = tokio::spawn(async move {
             while let Some(_) = order_book_update_rx.recv().await {
+                dbg!(atomic_counter_0.load(Ordering::Relaxed));
                 atomic_counter_0.fetch_add(1, Ordering::Relaxed);
                 if atomic_counter_0.load(Ordering::Relaxed) >= target_counter {
                     break;

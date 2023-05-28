@@ -1,10 +1,12 @@
 pub mod error;
-pub mod stream;
+mod stream;
 
 use async_trait::async_trait;
 use tokio::{sync::mpsc::Sender, task::JoinHandle};
 
 use crate::order_book::{error::OrderBookError, PriceLevelUpdate};
+
+use self::stream::{spawn_order_book_stream, spawn_stream_handler};
 
 use super::OrderBookService;
 
@@ -24,7 +26,22 @@ impl OrderBookService for Bitstamp {
         order_book_stream_buffer: usize,
         price_level_tx: Sender<PriceLevelUpdate>,
     ) -> Result<Vec<JoinHandle<Result<(), OrderBookError>>>, OrderBookError> {
-        todo!()
+        let pair = pair.join("");
+        let stream_pair = pair.to_lowercase();
+        let snapshot_pair = stream_pair.clone();
+
+        let (ws_stream_rx, stream_handle) =
+            spawn_order_book_stream(stream_pair, order_book_stream_buffer).await?;
+
+        let order_book_update_handle = spawn_stream_handler(
+            snapshot_pair,
+            order_book_depth,
+            ws_stream_rx,
+            price_level_tx,
+        )
+        .await?;
+
+        Ok(vec![stream_handle, order_book_update_handle])
     }
 }
 
@@ -35,6 +52,7 @@ mod tests {
         Arc,
     };
 
+    use crate::exchanges::bitstamp::Bitstamp;
     use crate::{
         exchanges::{binance::Binance, OrderBookService},
         order_book::{error::OrderBookError, PriceLevel, PriceLevelUpdate},
@@ -43,6 +61,41 @@ mod tests {
 
     #[tokio::test]
 
-    //Test the Binance WS connection for 1000 price level updates
-    async fn test_spawn_order_book_service() {}
+    async fn test_spawn_order_book_service() {
+        let atomic_counter_0 = Arc::new(AtomicU32::new(0));
+        let atomic_counter_1 = atomic_counter_0.clone();
+        let target_counter = 5000;
+
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<PriceLevelUpdate>(500);
+        let mut join_handles = Bitstamp::spawn_order_book_service(["eth", "btc"], 1000, 500, tx)
+            .await
+            .expect("TODO: handle this error");
+
+        let price_level_update_handle = tokio::spawn(async move {
+            while let Some(_) = rx.recv().await {
+                dbg!(atomic_counter_0.load(Ordering::Relaxed));
+                atomic_counter_0.fetch_add(1, Ordering::Relaxed);
+                if atomic_counter_0.load(Ordering::Relaxed) >= target_counter {
+                    break;
+                }
+            }
+
+            return Ok::<(), OrderBookError>(());
+        });
+
+        join_handles.push(price_level_update_handle);
+
+        let futures = join_handles
+            .into_iter()
+            .map(|handle| handle.boxed())
+            .collect::<Vec<_>>();
+
+        //Wait for the first future to be finished
+        let (result, _, _) = futures::future::select_all(futures).await;
+        if atomic_counter_1.load(Ordering::Relaxed) != target_counter {
+            result
+                .expect("Join handle error")
+                .expect("Error when handling WS connection");
+        }
+    }
 }
