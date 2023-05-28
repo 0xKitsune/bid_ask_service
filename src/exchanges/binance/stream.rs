@@ -30,10 +30,11 @@ use crate::exchanges::exchange_utils;
 use tungstenite::Message;
 
 const WS_BASE_ENDPOINT: &str = "wss://stream.binance.com:9443/ws/";
-const DEPTH_SNAPSHOT_BASE_ENDPOINT: &str = "https://api.binance.com/api/v3/depth?symbol=";
+const ORDER_BOOK_SNAPSHOT_BASE_ENDPOINT: &str = "https://api.binance.com/api/v3/depth?symbol=";
 
-//TODO: Add a comment for what this is
-const GET_DEPTH_SNAPSHOT: Vec<u8> = vec![];
+//TODO: Add a comment for what this is also there are more efficient ways to do this, update this
+
+const GET_ORDER_BOOK_SNAPSHOT: Vec<u8> = vec![];
 
 // Websocket Market Streams
 
@@ -61,6 +62,7 @@ impl Binance {
         OrderBookError,
     > {
         let pair = pair.join("");
+        //TODO: add comment to explain why we do this
         let stream_pair = pair.to_lowercase();
         let depth_snapshot_pair = pair.to_uppercase();
 
@@ -79,7 +81,7 @@ impl Binance {
                 log::info!("Ws connection established");
 
                 ws_stream_tx
-                    .send(Message::Binary(GET_DEPTH_SNAPSHOT))
+                    .send(Message::Binary(GET_ORDER_BOOK_SNAPSHOT))
                     .await
                     .map_err(BinanceError::MessageSendError)?; //TODO: we prob dont need a binance error for this
 
@@ -127,8 +129,9 @@ impl Binance {
                     tungstenite::Message::Binary(message) => {
                         //This is an internal message signaling that we should get the depth snapshot and send it through the channel
                         if message.is_empty() {
-                            let depth_snapshot =
-                                get_depth_snapshot(&depth_snapshot_pair, order_book_depth).await?;
+                            let order_book_snapshot =
+                                get_order_book_snapshot(&depth_snapshot_pair, order_book_depth)
+                                    .await?;
 
                             //TODO: there might be a more efficient way to do this, we are making sure we are not missing any orders using redundant logic with this approach but it is prob a little slow
                             order_book_update_tx
@@ -136,9 +139,9 @@ impl Binance {
                                     event_type: OrderBookEventType::DepthUpdate,
                                     event_time: 0,
                                     first_update_id: 0,
-                                    final_updated_id: depth_snapshot.last_update_id,
-                                    bids: depth_snapshot.bids,
-                                    asks: depth_snapshot.asks,
+                                    final_updated_id: order_book_snapshot.last_update_id,
+                                    bids: order_book_snapshot.bids,
+                                    asks: order_book_snapshot.asks,
                                 })
                                 .await
                                 .map_err(BinanceError::OrderBookUpdateSendError)?;
@@ -160,7 +163,7 @@ impl Binance {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct DepthSnapshot {
+pub struct OrderBookSnapshot {
     #[serde(rename = "lastUpdateId")]
     last_update_id: u64,
     #[serde(deserialize_with = "exchange_utils::convert_array_items_to_f64")]
@@ -217,12 +220,12 @@ pub enum OrderBookEventType {
     DepthUpdate,
 }
 
-async fn get_depth_snapshot(
-    ticker: &str,
+async fn get_order_book_snapshot(
+    pair: &str,
     order_book_depth: usize,
-) -> Result<DepthSnapshot, OrderBookError> {
-    let depth_snapshot_endpoint = DEPTH_SNAPSHOT_BASE_ENDPOINT.to_owned()
-        + &ticker
+) -> Result<OrderBookSnapshot, OrderBookError> {
+    let depth_snapshot_endpoint = ORDER_BOOK_SNAPSHOT_BASE_ENDPOINT.to_owned()
+        + &pair
         + "&limit="
         + order_book_depth.to_string().as_str();
 
@@ -230,10 +233,67 @@ async fn get_depth_snapshot(
     let depth_response = reqwest::get(depth_snapshot_endpoint).await?;
 
     if depth_response.status().is_success() {
-        Ok(depth_response.json::<DepthSnapshot>().await?)
+        Ok(depth_response.json::<OrderBookSnapshot>().await?)
     } else {
         Err(OrderBookError::HTTPError(String::from_utf8(
             depth_response.bytes().await?.to_vec(),
         )?))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{
+        atomic::{AtomicU32, AtomicU8, Ordering},
+        Arc,
+    };
+
+    use crate::exchanges::binance::stream::OrderBookUpdate;
+    use crate::{
+        exchanges::{binance::Binance, OrderBookService},
+        order_book::{error::OrderBookError, PriceLevel, PriceLevelUpdate},
+    };
+    use futures::FutureExt;
+    use tokio::sync::mpsc::Receiver;
+    //TODO: add test for get snapshot
+
+    #[tokio::test]
+
+    //Test the Binance WS connection for 1000 order book updates
+    async fn test_spawn_order_book_stream() {
+        let atomic_counter_0 = Arc::new(AtomicU32::new(0));
+        let atomic_counter_1 = atomic_counter_0.clone();
+        let target_counter = 1000;
+
+        let (mut order_book_update_rx, mut join_handles) =
+            Binance::spawn_order_book_stream(["eth", "btc"], 1000, 500)
+                .await
+                .expect("handle this error");
+
+        let order_book_update_handle = tokio::spawn(async move {
+            while let Some(_) = order_book_update_rx.recv().await {
+                atomic_counter_0.fetch_add(1, Ordering::Relaxed);
+                if atomic_counter_0.load(Ordering::Relaxed) >= target_counter {
+                    break;
+                }
+            }
+
+            return Ok::<(), OrderBookError>(());
+        });
+
+        join_handles.push(order_book_update_handle);
+
+        let futures = join_handles
+            .into_iter()
+            .map(|handle| handle.boxed())
+            .collect::<Vec<_>>();
+
+        //Wait for the first future to be finished
+        let (result, _, _) = futures::future::select_all(futures).await;
+        if atomic_counter_1.load(Ordering::Relaxed) != target_counter {
+            result
+                .expect("Join handle error")
+                .expect("Error when handling WS connection");
+        }
     }
 }

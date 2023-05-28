@@ -119,20 +119,18 @@ mod tests {
     #[tokio::test]
 
     //Test the Binance WS connection for 1000 price level updates
-    async fn test_ws_stream() {
+    async fn test_spawn_order_book_service() {
         let atomic_counter_0 = Arc::new(AtomicU32::new(0));
         let atomic_counter_1 = atomic_counter_0.clone();
         let target_counter = 1000;
 
         let (tx, mut rx) = tokio::sync::mpsc::channel::<PriceLevelUpdate>(500);
-        let mut join_handles = Binance::spawn_order_book_service(["bnb", "btc"], 1000, 500, tx)
+        let mut join_handles = Binance::spawn_order_book_service(["eth", "btc"], 1000, 500, tx)
             .await
             .expect("handle this error");
 
         let price_level_update_handle = tokio::spawn(async move {
-            while let Some(price_level_update) = rx.recv().await {
-                dbg!(price_level_update);
-
+            while let Some(_) = rx.recv().await {
                 atomic_counter_0.fetch_add(1, Ordering::Relaxed);
                 if atomic_counter_0.load(Ordering::Relaxed) >= target_counter {
                     break;
