@@ -68,7 +68,7 @@ impl Bitstamp {
         order_book_stream_buffer: usize,
     ) -> Result<
         (
-            Receiver<OrderBookUpdate>,
+            Receiver<OrderBookUpdate>, //TODO: change this to price level update instead
             Vec<JoinHandle<Result<(), OrderBookError>>>,
         ),
         OrderBookError,
