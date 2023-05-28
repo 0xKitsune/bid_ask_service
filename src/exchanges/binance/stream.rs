@@ -64,7 +64,7 @@ impl Binance {
         let pair = pair.join("");
         //TODO: add comment to explain why we do this
         let stream_pair = pair.to_lowercase();
-        let depth_snapshot_pair = pair.to_uppercase();
+        let snapshot_pair = pair.to_uppercase();
 
         let (ws_stream_tx, mut ws_stream_rx) =
             tokio::sync::mpsc::channel::<Message>(order_book_stream_buffer);
@@ -129,9 +129,8 @@ impl Binance {
                     tungstenite::Message::Binary(message) => {
                         //This is an internal message signaling that we should get the depth snapshot and send it through the channel
                         if message.is_empty() {
-                            let order_book_snapshot =
-                                get_order_book_snapshot(&depth_snapshot_pair, order_book_depth)
-                                    .await?;
+                            let snapshot =
+                                get_order_book_snapshot(&snapshot_pair, order_book_depth).await?;
 
                             //TODO: there might be a more efficient way to do this, we are making sure we are not missing any orders using redundant logic with this approach but it is prob a little slow
                             order_book_update_tx
@@ -139,9 +138,9 @@ impl Binance {
                                     event_type: OrderBookEventType::DepthUpdate,
                                     event_time: 0,
                                     first_update_id: 0,
-                                    final_updated_id: order_book_snapshot.last_update_id,
-                                    bids: order_book_snapshot.bids,
-                                    asks: order_book_snapshot.asks,
+                                    final_updated_id: snapshot.last_update_id,
+                                    bids: snapshot.bids,
+                                    asks: snapshot.asks,
                                 })
                                 .await
                                 .map_err(BinanceError::OrderBookUpdateSendError)?;
@@ -224,19 +223,19 @@ async fn get_order_book_snapshot(
     pair: &str,
     order_book_depth: usize,
 ) -> Result<OrderBookSnapshot, OrderBookError> {
-    let depth_snapshot_endpoint = ORDER_BOOK_SNAPSHOT_BASE_ENDPOINT.to_owned()
+    let snapshot_endpoint = ORDER_BOOK_SNAPSHOT_BASE_ENDPOINT.to_owned()
         + &pair
         + "&limit="
         + order_book_depth.to_string().as_str();
 
     // Get the depth snapshot
-    let depth_response = reqwest::get(depth_snapshot_endpoint).await?;
+    let snapshot_response = reqwest::get(snapshot_endpoint).await?;
 
-    if depth_response.status().is_success() {
-        Ok(depth_response.json::<OrderBookSnapshot>().await?)
+    if snapshot_response.status().is_success() {
+        Ok(snapshot_response.json::<OrderBookSnapshot>().await?)
     } else {
         Err(OrderBookError::HTTPError(String::from_utf8(
-            depth_response.bytes().await?.to_vec(),
+            snapshot_response.bytes().await?.to_vec(),
         )?))
     }
 }
@@ -297,3 +296,5 @@ mod tests {
         }
     }
 }
+
+//TODO: add some tests for error cases

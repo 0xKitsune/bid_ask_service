@@ -14,6 +14,8 @@ use crate::exchanges::Exchange;
 use self::error::OrderBookError;
 pub mod error;
 
+//TODO: add a variant of the order book data structure where the order book will have a hashmap for quick update/removal
+
 //TODO: if you want to read the order book, you will need this to be send/sync, if you just want updates from a channel you dont need this
 
 //TODO: second off, this makes things a little bit easier, allowing you to have a rbtree or avl tree or other intrusive collection, without it needing to be thread safe
