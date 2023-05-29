@@ -23,8 +23,8 @@ pub mod error;
 //TODO: second off, this makes things a little bit easier, allowing you to have a rbtree or avl tree or other intrusive collection, without it needing to be thread safe
 
 pub trait OrderBook {
-    type Bids;
-    type Asks;
+    type Bids: BidTree;
+    type Asks: AskTree;
 
     fn update_book(&self, price_level_update: PriceLevelUpdate) -> Result<(), OrderBookError> {
         match price_level_update {
@@ -35,6 +35,16 @@ pub trait OrderBook {
 
     fn update_bids(&self, price_level_update: PriceLevelUpdate) -> Result<(), OrderBookError>;
     fn update_asks(&self, price_level_update: PriceLevelUpdate) -> Result<(), OrderBookError>;
+}
+
+pub trait BidTree {
+    fn insert_bid(&mut self, price_level_update: PriceLevel);
+    fn remove_bid(&mut self, price_level_update: PriceLevel);
+}
+
+pub trait AskTree {
+    fn insert_ask(&mut self, price_level_update: PriceLevel);
+    fn remove_ask(&mut self, price_level_update: PriceLevel);
 }
 
 pub struct AggregatedOrderBook<B: OrderBook + 'static> {

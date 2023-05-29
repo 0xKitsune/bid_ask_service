@@ -25,7 +25,7 @@ pub trait OrderBookService {
     ) -> Result<Vec<JoinHandle<Result<(), OrderBookError>>>, OrderBookError>;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Exchange {
     Binance,
     Bitstamp,
