@@ -2,7 +2,7 @@ use std::fmt;
 
 use serde::{
     de::{self, SeqAccess, Visitor},
-    Deserializer,
+    Deserialize, Deserializer,
 };
 
 #[derive(Debug)]
@@ -36,4 +36,12 @@ where
     D: Deserializer<'a>,
 {
     deserializer.deserialize_seq(StringF64ArrayVisitor)
+}
+
+pub fn convert_from_string_to_u64<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    s.parse::<u64>().map_err(serde::de::Error::custom)
 }

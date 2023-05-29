@@ -1,8 +1,14 @@
-use super::Bitstamp;
+use std::{fs::File, io::Write};
 
+use super::Bitstamp;
+use crate::{
+    exchanges::{exchange_utils, Exchange},
+    order_book::PriceLevel,
+};
 use async_trait::async_trait;
 use futures::{SinkExt, StreamExt};
 use serde_derive::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use tokio::{
     sync::mpsc::{Receiver, Sender},
     task::JoinHandle,
@@ -18,7 +24,9 @@ use super::OrderBookService;
 
 const WS_BASE_ENDPOINT: &str = "wss://ws.bitstamp.net/";
 const SUBSCRIBE_EVENT: &str = "bts:subscribe";
+const DIFF_ORDER_BOOK: &str = "diff_order_book";
 const ORDER_BOOK_SNAPSHOT_BASE_ENDPOINT: &str = "https://www.bitstamp.net/api/v2/order_book/";
+const DATA_EVENT: &str = "data";
 //TODO: Add a comment for what this is also there are more efficent ways to do this, update this
 const GET_ORDER_BOOK_SNAPSHOT: Vec<u8> = vec![];
 
@@ -27,10 +35,25 @@ pub struct SubscribeMessage {
     event: String,
     data: SubscriptionData,
 }
+impl SubscribeMessage {
+    pub fn new(channel: &str) -> SubscribeMessage {
+        SubscribeMessage {
+            event: SUBSCRIBE_EVENT.to_owned(),
+            data: SubscriptionData::new(channel),
+        }
+    }
+}
 
 #[derive(Serialize, Debug)]
 pub struct SubscriptionData {
     channel: String,
+}
+impl SubscriptionData {
+    pub fn new(channel: &str) -> SubscriptionData {
+        SubscriptionData {
+            channel: String::from(channel),
+        }
+    }
 }
 
 //TODO: note to self, I think we are going to want to get the full live order book data
@@ -43,193 +66,224 @@ pub struct SubscriptionData {
 
 //TODO: we can prob couple this with the snapshot as well just like binance and follow almost the exact same order to get a buffered stream with reconnects
 
-impl Bitstamp {
-    pub async fn spawn_order_book_stream(
-        pair: [&str; 2],
-        order_book_depth: usize,
-        order_book_stream_buffer: usize,
-    ) -> Result<(Receiver<()>, Vec<JoinHandle<Result<(), OrderBookError>>>), OrderBookError> {
-        let pair = pair.join("");
-        //TODO: add comment to explain why we do this
-        let stream_pair = pair.to_lowercase();
-        let depth_snapshot_pair = pair.to_uppercase();
+pub async fn spawn_order_book_stream(
+    pair: String,
+    order_book_stream_buffer: usize,
+) -> Result<(Receiver<Message>, JoinHandle<Result<(), OrderBookError>>), OrderBookError> {
+    let (ws_stream_tx, ws_stream_rx) =
+        tokio::sync::mpsc::channel::<Message>(order_book_stream_buffer);
 
-        let (ws_stream_tx, mut ws_stream_rx) =
-            tokio::sync::mpsc::channel::<Message>(order_book_stream_buffer);
+    //spawn a thread that handles the stream and buffers the results
+    let stream_handle = tokio::spawn(async move {
+        let ws_stream_tx: Sender<Message> = ws_stream_tx.clone();
+        loop {
+            let (mut order_book_stream, _) =
+                tokio_tungstenite::connect_async(WS_BASE_ENDPOINT).await?;
 
-        //spawn a thread that handles the stream and buffers the results
-        let stream_handle = tokio::spawn(async move {
-            let ws_stream_tx = ws_stream_tx.clone();
-            loop {
-                //Establish an infinite loop to handle a ws stream with reconnects
-                let order_book_endpoint = WS_BASE_ENDPOINT.to_owned() + &stream_pair + "@depth";
+            let subscription_message = serde_json::to_string(&SubscribeMessage::new(&format!(
+                "{DIFF_ORDER_BOOK}_{pair}"
+            )))?;
 
-                let (mut order_book_stream, _) =
-                    tokio_tungstenite::connect_async(order_book_endpoint).await?;
-                log::info!("Ws connection established");
+            order_book_stream
+                .send(tungstenite::Message::Text(subscription_message))
+                .await?;
 
-                ws_stream_tx
-                    .send(Message::Binary(GET_ORDER_BOOK_SNAPSHOT))
-                    .await
-                    .map_err(BitstampError::MessageSendError)?; //TODO: we prob dont need a binance error for this
+            log::info!("Ws connection established");
 
-                while let Some(Ok(message)) = order_book_stream.next().await {
-                    match message {
-                        tungstenite::Message::Text(_) => {
-                            ws_stream_tx
-                                .send(message)
-                                .await
-                                .map_err(BitstampError::MessageSendError)?;
-                        }
+            //TODO: send a message telling to get the orderbook snapshot
 
-                        tungstenite::Message::Ping(_) => {
-                            log::info!("Ping received");
-                            order_book_stream.send(Message::Pong(vec![])).await.ok();
-                            log::info!("Pong sent");
-                        }
+            ws_stream_tx
+                .send(Message::Binary(GET_ORDER_BOOK_SNAPSHOT))
+                .await
+                .map_err(BitstampError::MessageSendError)?; //TODO: we prob dont need a binance error for this
 
-                        tungstenite::Message::Close(_) => {
-                            log::info!("Ws connection closed, reconnecting...");
-                            break;
-                        }
-
-                        other => {
-                            log::warn!("{other:?}");
-                        }
-                    }
-                }
-            }
-
-            //TODO: we dont need this you can remove this
-
-            Ok::<(), OrderBookError>(())
-        });
-
-        // let (order_book_update_tx, order_book_update_rx) =
-        //     tokio::sync::mpsc::channel::<OrderBookUpdate>(order_book_stream_buffer);
-
-        let order_book_update_handle = tokio::spawn(async move {
-            while let Some(message) = ws_stream_rx.recv().await {
+            while let Some(Ok(message)) = order_book_stream.next().await {
                 match message {
-                    tungstenite::Message::Text(message) => {
-                        // order_book_update_tx
-                        //     .send(serde_json::from_str(&message)?)
-                        //     .await
-                        //     .map_err(BitstampError::OrderBookUpdateSendError)?;
+                    tungstenite::Message::Text(_) => {
+                        ws_stream_tx
+                            .send(message)
+                            .await
+                            .map_err(BitstampError::MessageSendError)?;
                     }
 
-                    tungstenite::Message::Binary(message) => {
-                        // //This is an internal message signaling that we should get the depth snapshot and send it through the channel
-                        if message.is_empty() {
-                            let depth_snapshot =
-                                get_order_book_snapshot(&depth_snapshot_pair, order_book_depth)
-                                    .await?;
-
-                            //     //TODO: there might be a more efficient way to do this, we are making sure we are not missing any orders using redundant logic with this approach but it is prob a little slow
-                            //     order_book_update_tx
-                            //         .send(OrderBookUpdate {
-                            //             event_type: OrderBookEventType::DepthUpdate,
-                            //             event_time: 0,
-                            //             first_update_id: 0,
-                            //             final_updated_id: depth_snapshot.last_update_id,
-                            //             bids: depth_snapshot.bids,
-                            //             asks: depth_snapshot.asks,
-                            //         })
-                            //         .await
-                            //         .map_err(BinanceError::OrderBookUpdateSendError)?;
-                        }
+                    tungstenite::Message::Ping(_) => {
+                        log::info!("Ping received");
+                        order_book_stream.send(Message::Pong(vec![])).await.ok();
+                        log::info!("Pong sent");
                     }
 
-                    _ => {}
+                    tungstenite::Message::Close(_) => {
+                        log::info!("Ws connection closed, reconnecting...");
+                        break;
+                    }
+
+                    other => {
+                        log::warn!("{other:?}");
+                    }
                 }
             }
+        }
+    });
 
-            Ok::<(), OrderBookError>(())
-        });
-
-        todo!()
-        // Ok((
-        //     order_book_update_rx,
-        //     vec![stream_handle, order_book_update_handle],
-        // ))
-    }
+    Ok((ws_stream_rx, stream_handle))
 }
 
-// #[derive(Debug, Deserialize)]
-// pub struct OrderBookSnapshot {
-//     #[serde(rename = "lastUpdateId")]
-//     last_update_id: u64,
-//     #[serde(deserialize_with = "exchange_utils::convert_array_items_to_f64")]
-//     bids: Vec<[f64; 2]>,
-//     #[serde(deserialize_with = "exchange_utils::convert_array_items_to_f64")]
-//     asks: Vec<[f64; 2]>,
-// }
+pub async fn spawn_stream_handler(
+    pair: String,
+    mut ws_stream_rx: Receiver<Message>,
+    price_level_tx: Sender<PriceLevelUpdate>,
+) -> Result<JoinHandle<Result<(), OrderBookError>>, OrderBookError> {
+    let order_book_update_handle = tokio::spawn(async move {
+        //TODO: update heuristic to check if orders are gtg
+        let mut last_microtimestamp = 0;
 
-// #[derive(Deserialize, Debug)]
-// pub struct OrderBookUpdate {
-//     #[serde(rename = "e")]
-//     pub event_type: OrderBookEventType,
-//     #[serde(rename = "E")]
-//     pub event_time: usize,
-//     #[serde(rename = "U")]
-//     pub first_update_id: u64, //NOTE: not positive what the largest order id from the exchange will possibly grow to, it can probably be covered by u32, but using u64 just to be safe
-//     #[serde(rename = "u")]
-//     pub final_updated_id: u64,
-//     #[serde(
-//         rename = "b",
-//         deserialize_with = "exchange_utils::convert_array_items_to_f64"
-//     )]
-//     pub bids: Vec<[f64; 2]>,
-//     #[serde(
-//         rename = "a",
-//         deserialize_with = "exchange_utils::convert_array_items_to_f64"
-//     )]
-//     pub asks: Vec<[f64; 2]>,
-// }
+        while let Some(message) = ws_stream_rx.recv().await {
+            match message {
+                tungstenite::Message::Text(message) => {
+                    let order_book_event = serde_json::from_str::<OrderBookEvent>(&message)?;
 
-// impl OrderBookUpdate {
-//     pub fn new(
-//         event_type: OrderBookEventType,
-//         event_time: usize,
-//         first_update_id: u64,
-//         final_updated_id: u64,
-//         bids: Vec<[f64; 2]>,
-//         asks: Vec<[f64; 2]>,
-//     ) -> Self {
-//         OrderBookUpdate {
-//             event_type,
-//             event_time,
-//             first_update_id,
-//             final_updated_id,
-//             bids,
-//             asks,
-//         }
-//     }
-// }
+                    if order_book_event.event == DATA_EVENT {
+                        dbg!(&message);
+                        let order_book_update = serde_json::from_str::<OrderBookUpdate>(&message)?;
 
-// #[derive(Deserialize, Debug)]
-// pub enum OrderBookEventType {
-//     #[serde(rename = "depthUpdate")]
-//     DepthUpdate,
-// }
+                        let order_book_data = order_book_update.data;
 
-async fn get_order_book_snapshot(
-    pair: &str,
-    order_book_depth: usize,
-) -> Result<(), OrderBookError> {
-    let depth_snapshot_endpoint = ORDER_BOOK_SNAPSHOT_BASE_ENDPOINT.to_owned() + &pair;
+                        if order_book_data.microtimestamp <= last_microtimestamp {
+                            //TODO: potentially add some error logging here
+                            continue;
+                        } else {
+                            for bid in order_book_data.bids.into_iter() {
+                                price_level_tx
+                                    .send(PriceLevelUpdate::Bid(PriceLevel::new(
+                                        bid[0],
+                                        bid[1],
+                                        Exchange::Binance,
+                                    )))
+                                    .await?;
+                            }
 
-    // Get the depth snapshot
-    let depth_response = reqwest::get(depth_snapshot_endpoint).await?;
+                            for ask in order_book_data.asks.into_iter() {
+                                price_level_tx
+                                    .send(PriceLevelUpdate::Ask(PriceLevel::new(
+                                        ask[0],
+                                        ask[1],
+                                        Exchange::Binance,
+                                    )))
+                                    .await?;
+                            }
 
-    if depth_response.status().is_success() {
-        dbg!(depth_response);
+                            last_microtimestamp = order_book_data.microtimestamp;
+                        }
+                    }
+                }
 
-        panic!("stopping here");
-        // Ok(depth_response.json::<OrderBookSnapshot>().await?)
+                tungstenite::Message::Binary(message) => {
+                    //This is an internal message signaling that we should get the depth snapshot and send it through the channel
+                    if message.is_empty() {
+                        let snapshot = get_order_book_snapshot(&pair).await?;
+
+                        for bid in snapshot.bids.iter() {
+                            price_level_tx
+                                .send(PriceLevelUpdate::Bid(PriceLevel::new(
+                                    bid[0],
+                                    bid[1],
+                                    Exchange::Bitstamp,
+                                )))
+                                .await?;
+                        }
+
+                        for ask in snapshot.asks.iter() {
+                            price_level_tx
+                                .send(PriceLevelUpdate::Bid(PriceLevel::new(
+                                    ask[0],
+                                    ask[1],
+                                    Exchange::Bitstamp,
+                                )))
+                                .await?;
+                        }
+
+                        //TODO: update timestamp if needed or whatever metric we are using to check if valid order
+                        // last_update_id = snapshot.last_update_id;
+                    }
+                }
+
+                _ => {}
+            }
+        }
+
+        Ok::<(), OrderBookError>(())
+    });
+
+    Ok(order_book_update_handle)
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OrderBookSnapshot {
+    #[serde(
+        rename = "timestamp",
+        deserialize_with = "exchange_utils::convert_from_string_to_u64"
+    )]
+    timestamp: u64,
+    #[serde(
+        rename = "microtimestamp",
+        deserialize_with = "exchange_utils::convert_from_string_to_u64"
+    )]
+    microtimestamp: u64,
+    #[serde(
+        rename = "bids",
+        deserialize_with = "exchange_utils::convert_array_items_to_f64"
+    )]
+    bids: Vec<[f64; 2]>,
+    #[serde(
+        rename = "asks",
+        deserialize_with = "exchange_utils::convert_array_items_to_f64"
+    )]
+    asks: Vec<[f64; 2]>,
+}
+
+#[derive(Deserialize, Debug)]
+
+pub struct OrderBookEvent {
+    pub event: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct OrderBookUpdate {
+    pub data: OrderBookUpdateData,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct OrderBookUpdateData {
+    #[serde(
+        rename = "timestamp",
+        deserialize_with = "exchange_utils::convert_from_string_to_u64"
+    )]
+    timestamp: u64,
+    #[serde(
+        rename = "microtimestamp",
+        deserialize_with = "exchange_utils::convert_from_string_to_u64"
+    )]
+    microtimestamp: u64,
+    #[serde(
+        rename = "bids",
+        deserialize_with = "exchange_utils::convert_array_items_to_f64"
+    )]
+    pub bids: Vec<[f64; 2]>,
+    #[serde(
+        rename = "asks",
+        deserialize_with = "exchange_utils::convert_array_items_to_f64"
+    )]
+    pub asks: Vec<[f64; 2]>,
+}
+
+async fn get_order_book_snapshot(pair: &str) -> Result<OrderBookSnapshot, OrderBookError> {
+    let snapshot_endpoint = ORDER_BOOK_SNAPSHOT_BASE_ENDPOINT.to_owned() + &pair;
+    let snapshot_response = reqwest::get(snapshot_endpoint).await?;
+    if snapshot_response.status().is_success() {
+        Ok(snapshot_response.json::<OrderBookSnapshot>().await?)
     } else {
         Err(OrderBookError::HTTPError(String::from_utf8(
-            depth_response.bytes().await?.to_vec(),
+            snapshot_response.bytes().await?.to_vec(),
         )?))
     }
 }
@@ -241,27 +295,32 @@ mod tests {
         Arc,
     };
 
+    use crate::exchanges::bitstamp::stream::spawn_order_book_stream;
     use crate::{
         exchanges::{binance::Binance, bitstamp::Bitstamp, OrderBookService},
         order_book::{error::OrderBookError, PriceLevel, PriceLevelUpdate},
     };
     use futures::FutureExt;
-
     #[tokio::test]
 
-    //Test the Bitstamp WS connection for 1000 price level updates
+    //TODO: add a test for order book snapshot
+
+    //TODO: add some failure tests
+
     async fn test_spawn_order_book_stream() {
         let atomic_counter_0 = Arc::new(AtomicU32::new(0));
         let atomic_counter_1 = atomic_counter_0.clone();
-        let target_counter = 1000;
+        let target_counter = 50;
+        let mut join_handles = vec![];
 
-        let (mut order_book_update_rx, mut join_handles) =
-            Bitstamp::spawn_order_book_stream(["eth", "btc"], 1000, 500)
+        let (mut order_book_update_rx, order_book_stream_handle) =
+            spawn_order_book_stream("ethbtc".to_owned(), 500)
                 .await
-                .expect("handle this error");
+                .expect("TODO: handle this error");
 
         let order_book_update_handle = tokio::spawn(async move {
             while let Some(_) = order_book_update_rx.recv().await {
+                dbg!(atomic_counter_0.load(Ordering::Relaxed));
                 atomic_counter_0.fetch_add(1, Ordering::Relaxed);
                 if atomic_counter_0.load(Ordering::Relaxed) >= target_counter {
                     break;
@@ -271,6 +330,7 @@ mod tests {
             return Ok::<(), OrderBookError>(());
         });
 
+        join_handles.push(order_book_stream_handle);
         join_handles.push(order_book_update_handle);
 
         let futures = join_handles
@@ -280,6 +340,7 @@ mod tests {
 
         //Wait for the first future to be finished
         let (result, _, _) = futures::future::select_all(futures).await;
+
         if atomic_counter_1.load(Ordering::Relaxed) != target_counter {
             result
                 .expect("Join handle error")

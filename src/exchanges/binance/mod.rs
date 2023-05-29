@@ -31,6 +31,7 @@ use tungstenite::protocol::frame::Frame;
 use tungstenite::{protocol::WebSocketConfig, Message};
 
 use self::error::BinanceError;
+use self::stream::{spawn_order_book_stream, spawn_stream_handler};
 
 use super::OrderBookService;
 
@@ -50,56 +51,23 @@ impl OrderBookService for Binance {
         order_book_stream_buffer: usize,
         price_level_tx: Sender<PriceLevelUpdate>,
     ) -> Result<Vec<JoinHandle<Result<(), OrderBookError>>>, OrderBookError> {
-        let (mut order_book_rx, stream_handles) =
-            Binance::spawn_order_book_stream(pair, order_book_depth, order_book_stream_buffer)
-                .await?;
+        let pair = pair.join("");
+        //TODO: add comment to explain why we do this
+        let stream_pair = pair.to_lowercase();
+        let snapshot_pair = pair.to_uppercase();
 
-        let mut last_update_id = 0;
-        let price_level_update_handle = tokio::spawn(async move {
-            while let Some(order_book_update) = order_book_rx.recv().await {
-                if order_book_update.final_updated_id <= last_update_id {
-                    continue;
-                } else {
-                    //TODO:
-                    // make a note that the first update id will always be zero
-                    if order_book_update.first_update_id <= last_update_id + 1
-                        && order_book_update.final_updated_id >= last_update_id + 1
-                    {
-                        for bid in order_book_update.bids.into_iter() {
-                            price_level_tx
-                                .send(PriceLevelUpdate::Bid(PriceLevel::new(
-                                    bid[0],
-                                    bid[1],
-                                    Exchange::Binance,
-                                )))
-                                .await?;
-                        }
+        let (ws_stream_rx, stream_handle) =
+            spawn_order_book_stream(stream_pair, order_book_stream_buffer).await?;
 
-                        for ask in order_book_update.asks.into_iter() {
-                            price_level_tx
-                                .send(PriceLevelUpdate::Ask(PriceLevel::new(
-                                    ask[0],
-                                    ask[1],
-                                    Exchange::Binance,
-                                )))
-                                .await?;
-                        }
-                    } else {
-                        return Err(BinanceError::InvalidUpdateId.into());
-                    }
+        let order_book_update_handle = spawn_stream_handler(
+            snapshot_pair,
+            order_book_depth,
+            ws_stream_rx,
+            price_level_tx,
+        )
+        .await?;
 
-                    last_update_id = order_book_update.final_updated_id;
-                }
-            }
-
-            Ok::<(), OrderBookError>(())
-        });
-
-        let mut order_book_service_handles = vec![];
-        order_book_service_handles.extend(stream_handles);
-        order_book_service_handles.push(price_level_update_handle);
-
-        Ok(order_book_service_handles)
+        Ok(vec![stream_handle, order_book_update_handle])
     }
 }
 
@@ -122,15 +90,16 @@ mod tests {
     async fn test_spawn_order_book_service() {
         let atomic_counter_0 = Arc::new(AtomicU32::new(0));
         let atomic_counter_1 = atomic_counter_0.clone();
-        let target_counter = 1000;
+        let target_counter = 2100;
 
         let (tx, mut rx) = tokio::sync::mpsc::channel::<PriceLevelUpdate>(500);
         let mut join_handles = Binance::spawn_order_book_service(["eth", "btc"], 1000, 500, tx)
             .await
-            .expect("handle this error");
+            .expect("TODO: handle this error");
 
         let price_level_update_handle = tokio::spawn(async move {
             while let Some(_) = rx.recv().await {
+                dbg!(atomic_counter_0.load(Ordering::Relaxed));
                 atomic_counter_0.fetch_add(1, Ordering::Relaxed);
                 if atomic_counter_0.load(Ordering::Relaxed) >= target_counter {
                     break;
