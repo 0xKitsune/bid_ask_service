@@ -276,32 +276,9 @@ pub struct OrderBookUpdateData {
     pub asks: Vec<[f64; 2]>,
 }
 
-// impl OrderBookUpdate {
-//     pub fn new(
-//         event_type: OrderBookEventType,
-//         event_time: usize,
-//         first_update_id: u64,
-//         final_updated_id: u64,
-//         bids: Vec<[f64; 2]>,
-//         asks: Vec<[f64; 2]>,
-//     ) -> Self {
-//         OrderBookUpdate {
-//             event_type,
-//             event_time,
-//             first_update_id,
-//             final_updated_id,
-//             bids,
-//             asks,
-//         }
-//     }
-// }
-
 async fn get_order_book_snapshot(pair: &str) -> Result<OrderBookSnapshot, OrderBookError> {
     let snapshot_endpoint = ORDER_BOOK_SNAPSHOT_BASE_ENDPOINT.to_owned() + &pair;
-    dbg!("getting order book snapshot");
-    // Get the depth snapshot
     let snapshot_response = reqwest::get(snapshot_endpoint).await?;
-
     if snapshot_response.status().is_success() {
         Ok(snapshot_response.json::<OrderBookSnapshot>().await?)
     } else {
@@ -325,6 +302,10 @@ mod tests {
     };
     use futures::FutureExt;
     #[tokio::test]
+
+    //TODO: add a test for order book snapshot
+
+    //TODO: add some failure tests
 
     async fn test_spawn_order_book_stream() {
         let atomic_counter_0 = Arc::new(AtomicU32::new(0));

@@ -290,8 +290,10 @@ mod tests {
     };
     use futures::FutureExt;
     use tokio::sync::mpsc::Receiver;
-    //TODO: add test for get snapshot
 
+    //TODO: add a test for order book snapshot
+
+    //TODO: add some failure tests
     #[tokio::test]
 
     //Test the Binance WS connection for 50 order book updates
