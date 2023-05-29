@@ -70,7 +70,7 @@ pub async fn spawn_order_book_stream(
     pair: String,
     order_book_stream_buffer: usize,
 ) -> Result<(Receiver<Message>, JoinHandle<Result<(), OrderBookError>>), OrderBookError> {
-    let (ws_stream_tx, mut ws_stream_rx) =
+    let (ws_stream_tx, ws_stream_rx) =
         tokio::sync::mpsc::channel::<Message>(order_book_stream_buffer);
 
     //spawn a thread that handles the stream and buffers the results
@@ -130,7 +130,6 @@ pub async fn spawn_order_book_stream(
 
 pub async fn spawn_stream_handler(
     pair: String,
-    order_book_depth: usize,
     mut ws_stream_rx: Receiver<Message>,
     price_level_tx: Sender<PriceLevelUpdate>,
 ) -> Result<JoinHandle<Result<(), OrderBookError>>, OrderBookError> {

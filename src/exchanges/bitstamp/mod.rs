@@ -22,7 +22,7 @@ impl Bitstamp {
 impl OrderBookService for Bitstamp {
     async fn spawn_order_book_service(
         pair: [&str; 2],
-        order_book_depth: usize,
+        _order_book_depth: usize,
         order_book_stream_buffer: usize,
         price_level_tx: Sender<PriceLevelUpdate>,
     ) -> Result<Vec<JoinHandle<Result<(), OrderBookError>>>, OrderBookError> {
@@ -33,13 +33,8 @@ impl OrderBookService for Bitstamp {
         let (ws_stream_rx, stream_handle) =
             spawn_order_book_stream(stream_pair, order_book_stream_buffer).await?;
 
-        let order_book_update_handle = spawn_stream_handler(
-            snapshot_pair,
-            order_book_depth,
-            ws_stream_rx,
-            price_level_tx,
-        )
-        .await?;
+        let order_book_update_handle =
+            spawn_stream_handler(snapshot_pair, ws_stream_rx, price_level_tx).await?;
 
         Ok(vec![stream_handle, order_book_update_handle])
     }
