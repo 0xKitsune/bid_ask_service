@@ -3,7 +3,7 @@ use std::{fs::File, io::Write};
 use super::Bitstamp;
 use crate::{
     exchanges::{exchange_utils, Exchange},
-    order_book::price_level::{Ask, Bid, OrderType, PriceLevelUpdate},
+    order_book::price_level::{ask::Ask, bid::Bid, OrderType, PriceLevelUpdate},
 };
 use async_trait::async_trait;
 use futures::{SinkExt, StreamExt};

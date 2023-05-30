@@ -12,7 +12,7 @@ use crate::exchanges::Exchange;
 
 use self::{
     error::OrderBookError,
-    price_level::{Ask, Bid, PriceLevelUpdate},
+    price_level::{ask::Ask, bid::Bid, PriceLevelUpdate},
 };
 pub mod btree_set;
 pub mod error;
@@ -27,6 +27,8 @@ pub mod price_level;
 //TODO: add comment where it explains this represents the buy and sell side
 
 //TODO: would need to implement order on bid and ask
+
+//TODO: FIXME: we might still need this
 pub trait Order: Ord {
     fn get_price(&self) -> &OrderedFloat<f64>;
     fn get_quantity(&self) -> &OrderedFloat<f64>;
@@ -34,21 +36,9 @@ pub trait Order: Ord {
     fn get_exchange(&self) -> &Exchange;
 }
 
-pub trait OrderSide<T: Order> {
-    fn insert(&mut self, order: T) -> Result<(), OrderBookError>;
-    fn remove(&mut self, order: T) -> Result<(), OrderBookError>;
-}
-
-//TODO: maybe change this to be called OrderBook and then you can just implement orderbook on the datastructure
-//TODO: then you can keep the aggregated orderbook struct
-
-pub trait OrderBook<T: Order> {
-    type Bids: OrderSide<T>;
-    type Asks: OrderSide<T>;
-
-    // fn update_bids(&self, bid: Bid) -> Result<(), OrderBookError>;
-    // fn update_asks(&self, ask: Ask) -> Result<(), OrderBookError>;
-    //TODO: would need something like this ^^
+pub trait OrderBook {
+    fn update_bids(&mut self, bid: Bid) -> Result<(), OrderBookError>;
+    fn update_asks(&mut self, ask: Ask) -> Result<(), OrderBookError>;
 }
 
 // pub struct AggregatedOrderBook<B: OrderBook> {

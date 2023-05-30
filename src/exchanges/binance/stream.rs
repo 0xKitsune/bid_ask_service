@@ -4,7 +4,9 @@ use tokio::{sync::mpsc::Receiver, task::JoinHandle};
 use super::Binance;
 use crate::exchanges::binance::error::BinanceError;
 use crate::order_book::error::OrderBookError;
-use crate::order_book::price_level::{Ask, Bid, OrderType, PriceLevelUpdate};
+use crate::order_book::price_level::ask::Ask;
+use crate::order_book::price_level::bid::Bid;
+use crate::order_book::price_level::{OrderType, PriceLevelUpdate};
 
 use core::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
