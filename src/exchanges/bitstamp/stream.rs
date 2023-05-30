@@ -3,7 +3,7 @@ use std::{fs::File, io::Write};
 use super::Bitstamp;
 use crate::{
     exchanges::{exchange_utils, Exchange},
-    order_book::{OrderType, PriceLevel},
+    order_book::{OrderType, PriceLevel, PriceLevelUpdate},
 };
 use async_trait::async_trait;
 use futures::{SinkExt, StreamExt};
@@ -128,7 +128,7 @@ pub async fn spawn_order_book_stream(
 pub async fn spawn_stream_handler(
     pair: String,
     mut ws_stream_rx: Receiver<Message>,
-    price_level_tx: Sender<PriceLevel>,
+    price_level_tx: Sender<PriceLevelUpdate>,
 ) -> Result<JoinHandle<Result<(), OrderBookError>>, OrderBookError> {
     let order_book_update_handle = tokio::spawn(async move {
         //TODO: update heuristic to check if orders are gtg
@@ -149,27 +149,30 @@ pub async fn spawn_stream_handler(
                             //TODO: potentially add some error logging here
                             continue;
                         } else {
+                            let mut bids = vec![];
                             for bid in order_book_data.bids.into_iter() {
-                                price_level_tx
-                                    .send(PriceLevel::new(
-                                        bid[0],
-                                        bid[1],
-                                        Exchange::Binance,
-                                        OrderType::Bid,
-                                    ))
-                                    .await?;
+                                bids.push(PriceLevel::new(
+                                    bid[0],
+                                    bid[1],
+                                    Exchange::Bitstamp,
+                                    OrderType::Bid,
+                                ));
                             }
 
+                            let mut asks = vec![];
+
                             for ask in order_book_data.asks.into_iter() {
-                                price_level_tx
-                                    .send(PriceLevel::new(
-                                        ask[0],
-                                        ask[1],
-                                        Exchange::Binance,
-                                        OrderType::Ask,
-                                    ))
-                                    .await?;
+                                asks.push(PriceLevel::new(
+                                    ask[0],
+                                    ask[1],
+                                    Exchange::Bitstamp,
+                                    OrderType::Ask,
+                                ));
                             }
+
+                            price_level_tx
+                                .send(PriceLevelUpdate::new(bids, asks))
+                                .await?;
 
                             last_microtimestamp = order_book_data.microtimestamp;
                         }
@@ -180,31 +183,32 @@ pub async fn spawn_stream_handler(
                     //This is an internal message signaling that we should get the depth snapshot and send it through the channel
                     if message.is_empty() {
                         let snapshot = get_order_book_snapshot(&pair).await?;
-
-                        for bid in snapshot.bids.iter() {
-                            price_level_tx
-                                .send(PriceLevel::new(
-                                    bid[0],
-                                    bid[1],
-                                    Exchange::Bitstamp,
-                                    OrderType::Bid,
-                                ))
-                                .await?;
+                        let mut bids = vec![];
+                        for bid in snapshot.bids.into_iter() {
+                            bids.push(PriceLevel::new(
+                                bid[0],
+                                bid[1],
+                                Exchange::Bitstamp,
+                                OrderType::Bid,
+                            ));
                         }
 
-                        for ask in snapshot.asks.iter() {
-                            price_level_tx
-                                .send(PriceLevel::new(
-                                    ask[0],
-                                    ask[1],
-                                    Exchange::Bitstamp,
-                                    OrderType::Ask,
-                                ))
-                                .await?;
+                        let mut asks = vec![];
+
+                        for ask in snapshot.asks.into_iter() {
+                            asks.push(PriceLevel::new(
+                                ask[0],
+                                ask[1],
+                                Exchange::Bitstamp,
+                                OrderType::Ask,
+                            ));
                         }
 
-                        //TODO: update timestamp if needed or whatever metric we are using to check if valid order
-                        // last_update_id = snapshot.last_update_id;
+                        price_level_tx
+                            .send(PriceLevelUpdate::new(bids, asks))
+                            .await?;
+
+                        last_microtimestamp = snapshot.microtimestamp;
                     }
                 }
 

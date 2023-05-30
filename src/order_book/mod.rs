@@ -59,7 +59,7 @@ where
         price_level_buffer: usize,
     ) -> Result<Vec<JoinHandle<Result<(), OrderBookError>>>, OrderBookError> {
         let (price_level_tx, mut price_level_rx) =
-            tokio::sync::mpsc::channel::<PriceLevel>(price_level_buffer);
+            tokio::sync::mpsc::channel::<PriceLevelUpdate>(price_level_buffer);
 
         let mut handles = vec![];
 
@@ -113,6 +113,19 @@ impl PriceLevel {
 pub enum OrderType {
     Bid,
     Ask,
+}
+
+#[derive(Debug, Clone)]
+
+pub struct PriceLevelUpdate {
+    pub bids: Vec<PriceLevel>,
+    pub asks: Vec<PriceLevel>,
+}
+
+impl PriceLevelUpdate {
+    pub fn new(bids: Vec<PriceLevel>, asks: Vec<PriceLevel>) -> Self {
+        PriceLevelUpdate { bids, asks }
+    }
 }
 
 impl PartialEq for PriceLevel {

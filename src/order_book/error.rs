@@ -6,6 +6,8 @@ use crate::{
     order_book::PriceLevel,
 };
 
+use super::PriceLevelUpdate;
+
 #[derive(thiserror::Error, Debug)]
 pub enum OrderBookError {
     #[error("Reqwest error")]
@@ -21,7 +23,7 @@ pub enum OrderBookError {
     #[error("Bitstamp error")]
     BitstampError(#[from] BitstampError),
     #[error("Error when sending price level update")]
-    PriceLevelSendError(#[from] tokio::sync::mpsc::error::SendError<PriceLevel>),
+    PriceLevelUpdateSendError(#[from] tokio::sync::mpsc::error::SendError<PriceLevelUpdate>),
     #[error("Poisoned lock")]
     PoisonedLock,
     #[error("Error when converting to Utf8 from string")]

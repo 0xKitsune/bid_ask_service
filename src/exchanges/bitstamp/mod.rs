@@ -4,7 +4,7 @@ mod stream;
 use async_trait::async_trait;
 use tokio::{sync::mpsc::Sender, task::JoinHandle};
 
-use crate::order_book::{error::OrderBookError, PriceLevel};
+use crate::order_book::{error::OrderBookError, PriceLevel, PriceLevelUpdate};
 
 use self::stream::{spawn_order_book_stream, spawn_stream_handler};
 
@@ -24,7 +24,7 @@ impl OrderBookService for Bitstamp {
         pair: [&str; 2],
         _order_book_depth: usize,
         order_book_stream_buffer: usize,
-        price_level_tx: Sender<PriceLevel>,
+        price_level_tx: Sender<PriceLevelUpdate>,
     ) -> Result<Vec<JoinHandle<Result<(), OrderBookError>>>, OrderBookError> {
         let pair = pair.join("");
         let stream_pair = pair.to_lowercase();
@@ -47,7 +47,7 @@ mod tests {
         Arc,
     };
 
-    use crate::exchanges::bitstamp::Bitstamp;
+    use crate::{exchanges::bitstamp::Bitstamp, order_book::PriceLevelUpdate};
     use crate::{
         exchanges::{binance::Binance, OrderBookService},
         order_book::{error::OrderBookError, PriceLevel},
@@ -61,7 +61,7 @@ mod tests {
         let atomic_counter_1 = atomic_counter_0.clone();
         let target_counter = 5000;
 
-        let (tx, mut rx) = tokio::sync::mpsc::channel::<PriceLevel>(500);
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<PriceLevelUpdate>(500);
         let mut join_handles = Bitstamp::spawn_order_book_service(["eth", "btc"], 1000, 500, tx)
             .await
             .expect("TODO: handle this error");

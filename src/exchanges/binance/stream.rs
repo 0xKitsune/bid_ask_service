@@ -10,7 +10,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use crate::exchanges::{Exchange, OrderBookService};
-use crate::order_book::{self, OrderType};
+use crate::order_book::{self, OrderType, PriceLevelUpdate};
 use crate::order_book::{OrderBook, PriceLevel};
 
 use async_trait::async_trait;
@@ -108,7 +108,7 @@ pub async fn spawn_stream_handler(
     pair: String,
     order_book_depth: usize,
     mut ws_stream_rx: Receiver<Message>,
-    price_level_tx: Sender<PriceLevel>,
+    price_level_tx: Sender<PriceLevelUpdate>,
 ) -> Result<JoinHandle<Result<(), OrderBookError>>, OrderBookError> {
     let order_book_update_handle = tokio::spawn(async move {
         let mut last_update_id = 0;
@@ -132,27 +132,30 @@ pub async fn spawn_stream_handler(
                             if order_book_update.first_update_id <= last_update_id + 1
                                 && order_book_update.final_updated_id >= last_update_id + 1
                             {
+                                let mut bids = vec![];
+
                                 for bid in order_book_update.bids.into_iter() {
-                                    price_level_tx
-                                        .send(PriceLevel::new(
-                                            bid[0],
-                                            bid[1],
-                                            Exchange::Binance,
-                                            OrderType::Bid,
-                                        ))
-                                        .await?;
+                                    bids.push(PriceLevel::new(
+                                        bid[0],
+                                        bid[1],
+                                        Exchange::Binance,
+                                        OrderType::Bid,
+                                    ));
                                 }
+                                let mut asks = vec![];
 
                                 for ask in order_book_update.asks.into_iter() {
-                                    price_level_tx
-                                        .send(PriceLevel::new(
-                                            ask[0],
-                                            ask[1],
-                                            Exchange::Binance,
-                                            OrderType::Ask,
-                                        ))
-                                        .await?;
+                                    asks.push(PriceLevel::new(
+                                        ask[0],
+                                        ask[1],
+                                        Exchange::Binance,
+                                        OrderType::Ask,
+                                    ));
                                 }
+
+                                price_level_tx
+                                    .send(PriceLevelUpdate::new(bids, asks))
+                                    .await?;
                             } else {
                                 return Err(BinanceError::InvalidUpdateId.into());
                             }
@@ -167,27 +170,30 @@ pub async fn spawn_stream_handler(
                     if message.is_empty() {
                         let snapshot = get_order_book_snapshot(&pair, order_book_depth).await?;
 
-                        for bid in snapshot.bids.iter() {
-                            price_level_tx
-                                .send(PriceLevel::new(
-                                    bid[0],
-                                    bid[1],
-                                    Exchange::Binance,
-                                    OrderType::Bid,
-                                ))
-                                .await?;
+                        let mut bids = vec![];
+
+                        for bid in snapshot.bids.into_iter() {
+                            bids.push(PriceLevel::new(
+                                bid[0],
+                                bid[1],
+                                Exchange::Binance,
+                                OrderType::Bid,
+                            ));
+                        }
+                        let mut asks = vec![];
+
+                        for ask in snapshot.asks.into_iter() {
+                            asks.push(PriceLevel::new(
+                                ask[0],
+                                ask[1],
+                                Exchange::Binance,
+                                OrderType::Ask,
+                            ));
                         }
 
-                        for ask in snapshot.asks.iter() {
-                            price_level_tx
-                                .send(PriceLevel::new(
-                                    ask[0],
-                                    ask[1],
-                                    Exchange::Binance,
-                                    OrderType::Ask,
-                                ))
-                                .await?;
-                        }
+                        price_level_tx
+                            .send(PriceLevelUpdate::new(bids, asks))
+                            .await?;
 
                         last_update_id = snapshot.last_update_id;
                     }
