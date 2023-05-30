@@ -10,7 +10,7 @@ async-trait = "0.1.68"
 log = "0.4.17"
 log4rs = "1.2.0"
 thiserror = "1.0.36"
-criterion = {version = "0.4.0", features = ["async_tokio"]}
+criterion = { version = "0.4.0", features = ["async_tokio"] }
 tokio = { version = "1.28.1", features = ["full"] }
 reqwest = { version = "0.11.18", features = [ "json"] }
 serde_json = "1.0.96"
@@ -26,3 +26,10 @@ ordered-float = "3.7.0"
 [[bin]]
 name = "bid_ask_spread"
 path = "bin/bid_ask_spread.rs"
+
+
+
+
+[[bench]]
+name  = "btree_set_order_book"
+harness = false

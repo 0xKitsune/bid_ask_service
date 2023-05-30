@@ -15,6 +15,15 @@ pub struct BTreeSetOrderBook {
     asks: BTreeSet<Ask>,
 }
 
+impl BTreeSetOrderBook {
+    pub fn new() -> Self {
+        BTreeSetOrderBook {
+            bids: BTreeSet::new(),
+            asks: BTreeSet::new(),
+        }
+    }
+}
+
 impl OrderBook for BTreeSetOrderBook {
     fn update_bids(&mut self, bid: Bid) -> Result<(), OrderBookError> {
         if bid.get_quantity().0 == 0.0 {
