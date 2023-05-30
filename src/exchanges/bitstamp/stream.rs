@@ -3,7 +3,7 @@ use std::{fs::File, io::Write};
 use super::Bitstamp;
 use crate::{
     exchanges::{exchange_utils, Exchange},
-    order_book::price_level::{OrderType, PriceLevel, PriceLevelUpdate},
+    order_book::price_level::{Ask, Bid, OrderType, PriceLevel, PriceLevelUpdate},
 };
 use async_trait::async_trait;
 use futures::{SinkExt, StreamExt};
@@ -151,23 +151,13 @@ pub async fn spawn_stream_handler(
                         } else {
                             let mut bids = vec![];
                             for bid in order_book_data.bids.into_iter() {
-                                bids.push(PriceLevel::new(
-                                    bid[0],
-                                    bid[1],
-                                    Exchange::Bitstamp,
-                                    OrderType::Bid,
-                                ));
+                                bids.push(Bid::new(bid[0], bid[1], Exchange::Bitstamp));
                             }
 
                             let mut asks = vec![];
 
                             for ask in order_book_data.asks.into_iter() {
-                                asks.push(PriceLevel::new(
-                                    ask[0],
-                                    ask[1],
-                                    Exchange::Bitstamp,
-                                    OrderType::Ask,
-                                ));
+                                asks.push(Ask::new(ask[0], ask[1], Exchange::Bitstamp));
                             }
 
                             price_level_tx
@@ -185,23 +175,13 @@ pub async fn spawn_stream_handler(
                         let snapshot = get_order_book_snapshot(&pair).await?;
                         let mut bids = vec![];
                         for bid in snapshot.bids.into_iter() {
-                            bids.push(PriceLevel::new(
-                                bid[0],
-                                bid[1],
-                                Exchange::Bitstamp,
-                                OrderType::Bid,
-                            ));
+                            bids.push(Bid::new(bid[0], bid[1], Exchange::Bitstamp));
                         }
 
                         let mut asks = vec![];
 
                         for ask in snapshot.asks.into_iter() {
-                            asks.push(PriceLevel::new(
-                                ask[0],
-                                ask[1],
-                                Exchange::Bitstamp,
-                                OrderType::Ask,
-                            ));
+                            asks.push(Ask::new(ask[0], ask[1], Exchange::Bitstamp));
                         }
 
                         price_level_tx

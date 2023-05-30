@@ -10,6 +10,7 @@ use tokio::task::JoinHandle;
 
 use crate::exchanges::Exchange;
 
+//TODO: update price level to be a trait that has a few types and so bid and ask adhere to this
 #[derive(Debug, Clone)]
 pub enum PriceLevel {
     Bid(Bid),
@@ -68,12 +69,12 @@ pub enum OrderType {
 #[derive(Debug, Clone)]
 
 pub struct PriceLevelUpdate {
-    pub bids: Vec<PriceLevel>,
-    pub asks: Vec<PriceLevel>,
+    pub bids: Vec<Bid>,
+    pub asks: Vec<Ask>,
 }
 
 impl PriceLevelUpdate {
-    pub fn new(bids: Vec<PriceLevel>, asks: Vec<PriceLevel>) -> Self {
+    pub fn new(bids: Vec<Bid>, asks: Vec<Ask>) -> Self {
         PriceLevelUpdate { bids, asks }
     }
 }

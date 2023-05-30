@@ -4,7 +4,7 @@ use tokio::{sync::mpsc::Receiver, task::JoinHandle};
 use super::Binance;
 use crate::exchanges::binance::error::BinanceError;
 use crate::order_book::error::OrderBookError;
-use crate::order_book::price_level::{OrderType, PriceLevel, PriceLevelUpdate};
+use crate::order_book::price_level::{Ask, Bid, OrderType, PriceLevel, PriceLevelUpdate};
 
 use core::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -134,22 +134,12 @@ pub async fn spawn_stream_handler(
                                 let mut bids = vec![];
 
                                 for bid in order_book_update.bids.into_iter() {
-                                    bids.push(PriceLevel::new(
-                                        bid[0],
-                                        bid[1],
-                                        Exchange::Binance,
-                                        OrderType::Bid,
-                                    ));
+                                    bids.push(Bid::new(bid[0], bid[1], Exchange::Binance));
                                 }
                                 let mut asks = vec![];
 
                                 for ask in order_book_update.asks.into_iter() {
-                                    asks.push(PriceLevel::new(
-                                        ask[0],
-                                        ask[1],
-                                        Exchange::Binance,
-                                        OrderType::Ask,
-                                    ));
+                                    asks.push(Ask::new(ask[0], ask[1], Exchange::Binance));
                                 }
 
                                 price_level_tx
@@ -172,22 +162,12 @@ pub async fn spawn_stream_handler(
                         let mut bids = vec![];
 
                         for bid in snapshot.bids.into_iter() {
-                            bids.push(PriceLevel::new(
-                                bid[0],
-                                bid[1],
-                                Exchange::Binance,
-                                OrderType::Bid,
-                            ));
+                            bids.push(Bid::new(bid[0], bid[1], Exchange::Binance));
                         }
                         let mut asks = vec![];
 
                         for ask in snapshot.asks.into_iter() {
-                            asks.push(PriceLevel::new(
-                                ask[0],
-                                ask[1],
-                                Exchange::Binance,
-                                OrderType::Ask,
-                            ));
+                            asks.push(Ask::new(ask[0], ask[1], Exchange::Binance));
                         }
 
                         price_level_tx
