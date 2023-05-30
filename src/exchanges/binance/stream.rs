@@ -10,7 +10,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use crate::exchanges::{Exchange, OrderBookService};
-use crate::order_book::{self, PriceLevelUpdate};
+use crate::order_book::{self, OrderType};
 use crate::order_book::{OrderBook, PriceLevel};
 
 use async_trait::async_trait;
@@ -108,7 +108,7 @@ pub async fn spawn_stream_handler(
     pair: String,
     order_book_depth: usize,
     mut ws_stream_rx: Receiver<Message>,
-    price_level_tx: Sender<PriceLevelUpdate>,
+    price_level_tx: Sender<PriceLevel>,
 ) -> Result<JoinHandle<Result<(), OrderBookError>>, OrderBookError> {
     let order_book_update_handle = tokio::spawn(async move {
         let mut last_update_id = 0;
@@ -134,21 +134,23 @@ pub async fn spawn_stream_handler(
                             {
                                 for bid in order_book_update.bids.into_iter() {
                                     price_level_tx
-                                        .send(PriceLevelUpdate::Bid(PriceLevel::new(
+                                        .send(PriceLevel::new(
                                             bid[0],
                                             bid[1],
                                             Exchange::Binance,
-                                        )))
+                                            OrderType::Bid,
+                                        ))
                                         .await?;
                                 }
 
                                 for ask in order_book_update.asks.into_iter() {
                                     price_level_tx
-                                        .send(PriceLevelUpdate::Ask(PriceLevel::new(
+                                        .send(PriceLevel::new(
                                             ask[0],
                                             ask[1],
                                             Exchange::Binance,
-                                        )))
+                                            OrderType::Ask,
+                                        ))
                                         .await?;
                                 }
                             } else {
@@ -167,21 +169,23 @@ pub async fn spawn_stream_handler(
 
                         for bid in snapshot.bids.iter() {
                             price_level_tx
-                                .send(PriceLevelUpdate::Bid(PriceLevel::new(
+                                .send(PriceLevel::new(
                                     bid[0],
                                     bid[1],
                                     Exchange::Binance,
-                                )))
+                                    OrderType::Bid,
+                                ))
                                 .await?;
                         }
 
                         for ask in snapshot.asks.iter() {
                             price_level_tx
-                                .send(PriceLevelUpdate::Bid(PriceLevel::new(
+                                .send(PriceLevel::new(
                                     ask[0],
                                     ask[1],
                                     Exchange::Binance,
-                                )))
+                                    OrderType::Ask,
+                                ))
                                 .await?;
                         }
 
@@ -286,7 +290,7 @@ mod tests {
     use crate::exchanges::binance::stream::OrderBookUpdate;
     use crate::{
         exchanges::{binance::Binance, OrderBookService},
-        order_book::{error::OrderBookError, PriceLevel, PriceLevelUpdate},
+        order_book::{error::OrderBookError, PriceLevel},
     };
     use futures::FutureExt;
     use tokio::sync::mpsc::Receiver;

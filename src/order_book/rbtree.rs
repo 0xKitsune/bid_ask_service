@@ -1,5 +1,3 @@
-use super::{error::OrderBookError, OrderBook, PriceLevelUpdate};
-
 pub struct RBTreeOrderBook;
 
 impl RBTreeOrderBook {

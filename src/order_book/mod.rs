@@ -23,28 +23,15 @@ pub mod error;
 //TODO: second off, this makes things a little bit easier, allowing you to have a rbtree or avl tree or other intrusive collection, without it needing to be thread safe
 
 pub trait OrderBook {
-    type Bids: BidTree;
-    type Asks: AskTree;
-
-    fn update_book(&self, price_level_update: PriceLevelUpdate) -> Result<(), OrderBookError> {
-        match price_level_update {
-            PriceLevelUpdate::Bid(_) => self.update_bids(price_level_update),
-            PriceLevelUpdate::Ask(_) => self.update_asks(price_level_update),
+    fn update_book(&self, price_level: PriceLevel) -> Result<(), OrderBookError> {
+        match price_level.order_type {
+            OrderType::Bid => self.update_bids(price_level),
+            OrderType::Ask => self.update_asks(price_level),
         }
     }
 
-    fn update_bids(&self, price_level_update: PriceLevelUpdate) -> Result<(), OrderBookError>;
-    fn update_asks(&self, price_level_update: PriceLevelUpdate) -> Result<(), OrderBookError>;
-}
-
-pub trait BidTree {
-    fn insert_bid(&mut self, price_level_update: PriceLevel);
-    fn remove_bid(&mut self, price_level_update: PriceLevel);
-}
-
-pub trait AskTree {
-    fn insert_ask(&mut self, price_level_update: PriceLevel);
-    fn remove_ask(&mut self, price_level_update: PriceLevel);
+    fn update_bids(&self, price_level: PriceLevel) -> Result<(), OrderBookError>;
+    fn update_asks(&self, price_level: PriceLevel) -> Result<(), OrderBookError>;
 }
 
 pub struct AggregatedOrderBook<B: OrderBook + 'static> {
@@ -72,7 +59,7 @@ where
         price_level_buffer: usize,
     ) -> Result<Vec<JoinHandle<Result<(), OrderBookError>>>, OrderBookError> {
         let (price_level_tx, mut price_level_rx) =
-            tokio::sync::mpsc::channel::<PriceLevelUpdate>(price_level_buffer);
+            tokio::sync::mpsc::channel::<PriceLevel>(price_level_buffer);
 
         let mut handles = vec![];
 
@@ -108,22 +95,24 @@ pub struct PriceLevel {
     pub price: OrderedFloat<f64>,
     pub quantity: OrderedFloat<f64>,
     pub exchange: Exchange,
+    pub order_type: OrderType,
 }
 
 impl PriceLevel {
-    pub fn new(price: f64, quantity: f64, exchange: Exchange) -> Self {
+    pub fn new(price: f64, quantity: f64, exchange: Exchange, order_type: OrderType) -> Self {
         PriceLevel {
             price: OrderedFloat(price),
             quantity: OrderedFloat(quantity),
             exchange,
+            order_type,
         }
     }
 }
 
-#[derive(Debug)]
-pub enum PriceLevelUpdate {
-    Bid(PriceLevel),
-    Ask(PriceLevel),
+#[derive(Debug, Clone)]
+pub enum OrderType {
+    Bid,
+    Ask,
 }
 
 impl PartialEq for PriceLevel {
@@ -140,10 +129,19 @@ impl PartialOrd for PriceLevel {
     }
 }
 
+//TODO:update this comment to explain why we do this
+// highest price highest quantity for bids is the best,
+//so a price level with the same price but higher quantity should be considered greater than a price level with the same price but lower quantity
+
+//lowest price highest quantity for asks
+//so a price level with the same price but higher quantity should be considered less than a price level with the same price but lower quantity
 impl Ord for PriceLevel {
     fn cmp(&self, other: &Self) -> Ordering {
         match self.price.cmp(&other.price) {
-            Ordering::Equal => self.quantity.cmp(&other.quantity),
+            Ordering::Equal => match self.order_type {
+                OrderType::Bid => self.quantity.cmp(&other.quantity),
+                OrderType::Ask => self.quantity.cmp(&other.quantity).reverse(), //TODO: explain why we do this
+            },
             other => other,
         }
     }
@@ -156,23 +154,26 @@ mod tests {
 
     use ordered_float::OrderedFloat;
 
-    use crate::exchanges::Exchange;
+    use crate::{exchanges::Exchange, order_book::OrderType};
 
     use super::PriceLevel;
 
+    //TODO: add comparison for asks
     #[test]
-    pub fn test_price_level_greater() {
+    pub fn test_price_level_bid_greater() {
         //test when the price is greater but the quantity is the same
         let price_level_0 = PriceLevel {
             price: OrderedFloat(1.23),
             quantity: OrderedFloat(1200.56),
             exchange: Exchange::Binance,
+            order_type: OrderType::Bid,
         };
 
         let price_level_1 = PriceLevel {
             price: OrderedFloat(1.20),
             quantity: OrderedFloat(1200.56),
             exchange: Exchange::Binance,
+            order_type: OrderType::Bid,
         };
 
         assert_eq!(price_level_0 > price_level_1, true);
@@ -182,12 +183,14 @@ mod tests {
             price: OrderedFloat(1.20),
             quantity: OrderedFloat(1300.23),
             exchange: Exchange::Binance,
+            order_type: OrderType::Bid,
         };
 
         let price_level_3 = PriceLevel {
             price: OrderedFloat(1.20),
             quantity: OrderedFloat(1200.56),
             exchange: Exchange::Binance,
+            order_type: OrderType::Bid,
         };
 
         assert_eq!(price_level_2 > price_level_3, true);
@@ -197,12 +200,14 @@ mod tests {
             price: OrderedFloat(1.23),
             quantity: OrderedFloat(1200.56),
             exchange: Exchange::Bitstamp,
+            order_type: OrderType::Bid,
         };
 
         let price_level_5 = PriceLevel {
             price: OrderedFloat(1.20),
             quantity: OrderedFloat(1200.56),
             exchange: Exchange::Binance,
+            order_type: OrderType::Bid,
         };
 
         assert_eq!(price_level_4 > price_level_5, true);
@@ -212,29 +217,33 @@ mod tests {
             price: OrderedFloat(1.20),
             quantity: OrderedFloat(1300.23),
             exchange: Exchange::Bitstamp,
+            order_type: OrderType::Bid,
         };
 
         let price_level_7 = PriceLevel {
             price: OrderedFloat(1.20),
             quantity: OrderedFloat(1200.56),
             exchange: Exchange::Binance,
+            order_type: OrderType::Bid,
         };
 
         assert_eq!(price_level_6 > price_level_7, true);
     }
     #[test]
-    pub fn test_price_level_less_than() {
+    pub fn test_price_level_bid_less_than() {
         //test when the price is less but the quantity is the same
         let price_level_0 = PriceLevel {
             price: OrderedFloat(1.23),
             quantity: OrderedFloat(1200.56),
             exchange: Exchange::Binance,
+            order_type: OrderType::Bid,
         };
 
         let price_level_1 = PriceLevel {
             price: OrderedFloat(1.20),
             quantity: OrderedFloat(1200.56),
             exchange: Exchange::Binance,
+            order_type: OrderType::Bid,
         };
 
         assert_eq!(price_level_1 < price_level_0, true);
@@ -244,12 +253,14 @@ mod tests {
             price: OrderedFloat(1.20),
             quantity: OrderedFloat(1300.23),
             exchange: Exchange::Binance,
+            order_type: OrderType::Bid,
         };
 
         let price_level_3 = PriceLevel {
             price: OrderedFloat(1.20),
             quantity: OrderedFloat(1200.56),
             exchange: Exchange::Binance,
+            order_type: OrderType::Bid,
         };
 
         assert_eq!(price_level_3 < price_level_2, true);
@@ -259,12 +270,14 @@ mod tests {
             price: OrderedFloat(1.23),
             quantity: OrderedFloat(1200.56),
             exchange: Exchange::Bitstamp,
+            order_type: OrderType::Bid,
         };
 
         let price_level_5 = PriceLevel {
             price: OrderedFloat(1.20),
             quantity: OrderedFloat(1200.56),
             exchange: Exchange::Binance,
+            order_type: OrderType::Bid,
         };
 
         assert_eq!(price_level_5 < price_level_4, true);
@@ -274,29 +287,33 @@ mod tests {
             price: OrderedFloat(1.20),
             quantity: OrderedFloat(1300.23),
             exchange: Exchange::Bitstamp,
+            order_type: OrderType::Bid,
         };
 
         let price_level_7 = PriceLevel {
             price: OrderedFloat(1.20),
             quantity: OrderedFloat(1200.56),
             exchange: Exchange::Binance,
+            order_type: OrderType::Bid,
         };
 
         assert_eq!(price_level_7 < price_level_6, true);
     }
     #[test]
-    pub fn test_price_level_equal() {
+    pub fn test_price_level_bid_equal() {
         //test when the price, quantity and the exchanges are the same
         let price_level_0 = PriceLevel {
             price: OrderedFloat(1.20),
             quantity: OrderedFloat(1200.56),
             exchange: Exchange::Binance,
+            order_type: OrderType::Bid,
         };
 
         let price_level_1 = PriceLevel {
             price: OrderedFloat(1.20),
             quantity: OrderedFloat(1200.56),
             exchange: Exchange::Binance,
+            order_type: OrderType::Bid,
         };
 
         assert_eq!(price_level_0 == price_level_1, true);
@@ -306,12 +323,14 @@ mod tests {
             price: OrderedFloat(1.20),
             quantity: OrderedFloat(1200.56),
             exchange: Exchange::Binance,
+            order_type: OrderType::Bid,
         };
 
         let price_level_3 = PriceLevel {
             price: OrderedFloat(1.20),
             quantity: OrderedFloat(1200.56),
             exchange: Exchange::Bitstamp,
+            order_type: OrderType::Bid,
         };
 
         assert_eq!(price_level_2 == price_level_3, true);

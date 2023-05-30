@@ -3,7 +3,7 @@ use std::{fs::File, io::Write};
 use super::Bitstamp;
 use crate::{
     exchanges::{exchange_utils, Exchange},
-    order_book::PriceLevel,
+    order_book::{OrderType, PriceLevel},
 };
 use async_trait::async_trait;
 use futures::{SinkExt, StreamExt};
@@ -15,10 +15,7 @@ use tokio::{
 };
 use tungstenite::Message;
 
-use crate::{
-    exchanges::bitstamp::error::BitstampError,
-    order_book::{error::OrderBookError, PriceLevelUpdate},
-};
+use crate::{exchanges::bitstamp::error::BitstampError, order_book::error::OrderBookError};
 
 use super::OrderBookService;
 
@@ -131,7 +128,7 @@ pub async fn spawn_order_book_stream(
 pub async fn spawn_stream_handler(
     pair: String,
     mut ws_stream_rx: Receiver<Message>,
-    price_level_tx: Sender<PriceLevelUpdate>,
+    price_level_tx: Sender<PriceLevel>,
 ) -> Result<JoinHandle<Result<(), OrderBookError>>, OrderBookError> {
     let order_book_update_handle = tokio::spawn(async move {
         //TODO: update heuristic to check if orders are gtg
@@ -154,21 +151,23 @@ pub async fn spawn_stream_handler(
                         } else {
                             for bid in order_book_data.bids.into_iter() {
                                 price_level_tx
-                                    .send(PriceLevelUpdate::Bid(PriceLevel::new(
+                                    .send(PriceLevel::new(
                                         bid[0],
                                         bid[1],
                                         Exchange::Binance,
-                                    )))
+                                        OrderType::Bid,
+                                    ))
                                     .await?;
                             }
 
                             for ask in order_book_data.asks.into_iter() {
                                 price_level_tx
-                                    .send(PriceLevelUpdate::Ask(PriceLevel::new(
+                                    .send(PriceLevel::new(
                                         ask[0],
                                         ask[1],
                                         Exchange::Binance,
-                                    )))
+                                        OrderType::Ask,
+                                    ))
                                     .await?;
                             }
 
@@ -184,21 +183,23 @@ pub async fn spawn_stream_handler(
 
                         for bid in snapshot.bids.iter() {
                             price_level_tx
-                                .send(PriceLevelUpdate::Bid(PriceLevel::new(
+                                .send(PriceLevel::new(
                                     bid[0],
                                     bid[1],
                                     Exchange::Bitstamp,
-                                )))
+                                    OrderType::Bid,
+                                ))
                                 .await?;
                         }
 
                         for ask in snapshot.asks.iter() {
                             price_level_tx
-                                .send(PriceLevelUpdate::Bid(PriceLevel::new(
+                                .send(PriceLevel::new(
                                     ask[0],
                                     ask[1],
                                     Exchange::Bitstamp,
-                                )))
+                                    OrderType::Ask,
+                                ))
                                 .await?;
                         }
 
@@ -298,7 +299,7 @@ mod tests {
     use crate::exchanges::bitstamp::stream::spawn_order_book_stream;
     use crate::{
         exchanges::{binance::Binance, bitstamp::Bitstamp, OrderBookService},
-        order_book::{error::OrderBookError, PriceLevel, PriceLevelUpdate},
+        order_book::{error::OrderBookError, PriceLevel},
     };
     use futures::FutureExt;
     #[tokio::test]

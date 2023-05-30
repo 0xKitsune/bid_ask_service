@@ -3,7 +3,7 @@ use crate::{
         binance::error::{self, BinanceError},
         bitstamp::error::BitstampError,
     },
-    order_book::PriceLevelUpdate,
+    order_book::PriceLevel,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -21,7 +21,7 @@ pub enum OrderBookError {
     #[error("Bitstamp error")]
     BitstampError(#[from] BitstampError),
     #[error("Error when sending price level update")]
-    PriceLevelUpdateSendError(#[from] tokio::sync::mpsc::error::SendError<PriceLevelUpdate>),
+    PriceLevelSendError(#[from] tokio::sync::mpsc::error::SendError<PriceLevel>),
     #[error("Poisoned lock")]
     PoisonedLock,
     #[error("Error when converting to Utf8 from string")]

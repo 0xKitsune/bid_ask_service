@@ -6,7 +6,7 @@ pub mod error;
 mod stream;
 
 use crate::exchanges::Exchange;
-use crate::order_book::{self, PriceLevelUpdate};
+use crate::order_book::{self};
 use crate::{
     order_book::error::OrderBookError,
     order_book::{OrderBook, PriceLevel},
@@ -49,7 +49,7 @@ impl OrderBookService for Binance {
         pair: [&str; 2],
         order_book_depth: usize,
         order_book_stream_buffer: usize,
-        price_level_tx: Sender<PriceLevelUpdate>,
+        price_level_tx: Sender<PriceLevel>,
     ) -> Result<Vec<JoinHandle<Result<(), OrderBookError>>>, OrderBookError> {
         let pair = pair.join("");
         //TODO: add comment to explain why we do this
@@ -80,7 +80,7 @@ mod tests {
 
     use crate::{
         exchanges::{binance::Binance, OrderBookService},
-        order_book::{error::OrderBookError, PriceLevel, PriceLevelUpdate},
+        order_book::{error::OrderBookError, PriceLevel},
     };
     use futures::FutureExt;
 
@@ -92,7 +92,7 @@ mod tests {
         let atomic_counter_1 = atomic_counter_0.clone();
         let target_counter = 2100;
 
-        let (tx, mut rx) = tokio::sync::mpsc::channel::<PriceLevelUpdate>(500);
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<PriceLevel>(500);
         let mut join_handles = Binance::spawn_order_book_service(["eth", "btc"], 1000, 500, tx)
             .await
             .expect("TODO: handle this error");
