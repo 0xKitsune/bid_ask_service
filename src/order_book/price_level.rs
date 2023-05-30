@@ -128,69 +128,74 @@ impl Ord for Ask {
 #[cfg(test)]
 mod tests {
 
-    //TODO: add tests to compare price level
-
     use crate::{
         exchanges::Exchange,
         order_book::{Ask, Bid},
     };
 
-    use super::PriceLevel;
-
-    //TODO: add comparison for asks update and test everything
     #[test]
     pub fn test_bid_greater() {
         //the price is greater but the quantity is the same
         let bid_0 = Bid::new(1.23, 1200.56, Exchange::Binance);
         let bid_1 = Bid::new(1.20, 1200.56, Exchange::Binance);
 
-        assert_eq!(bid_0 > bid_1, true);
+        assert!(bid_0 > bid_1);
 
         //the price is the same but the quantity is greater
         let bid_2 = Bid::new(1.20, 1300.56, Exchange::Binance);
         let bid_3 = Bid::new(1.20, 1200.56, Exchange::Binance);
 
-        assert_eq!(bid_2 > bid_3, true);
+        assert!(bid_2 > bid_3);
 
         //the price is greater but the quantity is the same and the exchanges are different
         let bid_4 = Bid::new(1.24, 1200.56, Exchange::Binance);
         let bid_5 = Bid::new(1.20, 1200.56, Exchange::Bitstamp);
-        assert_eq!(bid_4 > bid_5, true);
+        assert!(bid_4 > bid_5);
 
         //the price is the same but the quantity is greater and the exchanges are different
         let bid_6 = Bid::new(1.20, 1300.56, Exchange::Binance);
         let bid_7 = Bid::new(1.20, 1200.56, Exchange::Bitstamp);
 
-        assert_eq!(bid_6 > bid_7, true);
+        assert!(bid_6 > bid_7);
 
-        //TODO: add case for price and quant are different
+        //the price and quantity are different
+        let bid_8 = Bid::new(1.23, 1000.56, Exchange::Binance);
+        let bid_9 = Bid::new(1.20, 1200.56, Exchange::Bitstamp);
+
+        assert!(bid_8 > bid_9);
     }
+
     #[test]
     pub fn test_bid_less() {
         //the price is less but the quantity is the same
         let bid_0 = Bid::new(1.23, 1200.56, Exchange::Binance);
         let bid_1 = Bid::new(1.20, 1200.56, Exchange::Binance);
 
-        assert_eq!(bid_1 < bid_0, true);
+        assert!(bid_1 < bid_0);
 
         //the price is the same but the quantity is less
         let bid_2 = Bid::new(1.20, 1300.56, Exchange::Binance);
         let bid_3 = Bid::new(1.20, 1200.56, Exchange::Binance);
 
-        assert_eq!(bid_3 < bid_2, true);
+        assert!(bid_3 < bid_2);
 
         //the price is less but the quantity is the same and the exchanges are different
         let bid_4 = Bid::new(1.25, 1200.56, Exchange::Bitstamp);
         let bid_5 = Bid::new(1.20, 1200.56, Exchange::Binance);
 
-        assert_eq!(bid_5 < bid_4, true);
+        assert!(bid_5 < bid_4);
 
         //the price is the same but the quantity is less and the exchanges are different
         let bid_6 = Bid::new(1.20, 1300.56, Exchange::Binance);
         let bid_7 = Bid::new(1.20, 1200.56, Exchange::Bitstamp);
 
-        assert_eq!(bid_7 < bid_6, true);
-        //TODO: add case for price and quant are different
+        assert!(bid_7 < bid_6);
+
+        //the price and quantity are different
+        let bid_8 = Bid::new(1.23, 1000.56, Exchange::Binance);
+        let bid_9 = Bid::new(1.20, 1200.56, Exchange::Bitstamp);
+
+        assert!(bid_9 < bid_8);
     }
     #[test]
     pub fn test_bid_equal() {
@@ -198,13 +203,13 @@ mod tests {
         let bid_0 = Bid::new(1.20, 1200.56, Exchange::Binance);
         let bid_1 = Bid::new(1.20, 1200.56, Exchange::Binance);
 
-        assert_eq!(bid_0 == bid_1, true);
+        assert!(bid_0 == bid_1);
 
         //the price and quantity are the same but the exchange is different
         let bid_2 = Bid::new(1.20, 1200.56, Exchange::Binance);
         let bid_3 = Bid::new(1.20, 1200.56, Exchange::Bitstamp);
 
-        assert_eq!(bid_2 == bid_3, true);
+        assert!(bid_2 == bid_3);
     }
 
     #[test]
@@ -213,27 +218,31 @@ mod tests {
         let ask_0 = Ask::new(1.23, 1200.56, Exchange::Binance);
         let ask_1 = Ask::new(1.20, 1200.56, Exchange::Binance);
 
-        assert_eq!(ask_1 < ask_0, true);
+        assert!(ask_1 < ask_0);
 
         //the price is the same but the quantity is less
         let ask_2 = Ask::new(1.20, 1200.56, Exchange::Binance);
         let ask_3 = Ask::new(1.20, 1300.56, Exchange::Binance);
 
-        assert_eq!(ask_3 < ask_2, true);
+        assert!(ask_3 < ask_2);
 
         //the price is less but the quantity is the same and the exchanges are different
         let ask_4 = Ask::new(1.25, 1200.56, Exchange::Bitstamp);
         let ask_5 = Ask::new(1.20, 1200.56, Exchange::Binance);
 
-        assert_eq!(ask_5 < ask_4, true);
+        assert!(ask_5 < ask_4);
 
         //the price is the same but the quantity is less and the exchanges are different
         let ask_6 = Ask::new(1.20, 1200.56, Exchange::Bitstamp);
         let ask_7 = Ask::new(1.20, 1300.56, Exchange::Binance);
 
-        assert_eq!(ask_7 < ask_6, true);
+        assert!(ask_7 < ask_6);
 
-        //TODO: add case for price and quant are different
+        //the price and quantity are different
+        let ask_8 = Ask::new(1.23, 1500.56, Exchange::Binance);
+        let ask_9 = Ask::new(1.20, 1200.56, Exchange::Bitstamp);
+
+        assert!(ask_9 < ask_8);
     }
 
     #[test]
@@ -242,29 +251,30 @@ mod tests {
         let ask_0 = Ask::new(1.23, 1200.56, Exchange::Binance);
         let ask_1 = Ask::new(1.20, 1200.56, Exchange::Binance);
 
-        assert_eq!(ask_0 > ask_1, true);
+        assert!(ask_0 > ask_1);
 
         //the price is the same but the quantity is greater
-        //TODO: add some comments as to why the ask is less when the quantity is greater
         let ask_2 = Ask::new(1.20, 1200.56, Exchange::Binance);
         let ask_3 = Ask::new(1.20, 1300.56, Exchange::Binance);
 
-        assert_eq!(ask_2 > ask_3, true);
+        assert!(ask_2 > ask_3);
 
         //the price is greater but the quantity is the same and the exchanges are different
         let ask_4 = Ask::new(1.24, 1200.56, Exchange::Binance);
         let ask_5 = Ask::new(1.20, 1200.56, Exchange::Bitstamp);
-        assert_eq!(ask_4 > ask_5, true);
+        assert!(ask_4 > ask_5);
 
         //the price is the same but the quantity is greater and the exchanges are different
-        //TODO: add some comments why this is the case
         let ask_6 = Ask::new(1.20, 1200.56, Exchange::Bitstamp);
         let ask_7 = Ask::new(1.20, 1300.56, Exchange::Binance);
 
-        //TODO: should fail
-        assert_eq!(ask_6 > ask_7, true);
+        assert!(ask_6 > ask_7);
 
-        //TODO: add case for price and quant are different
+        //the price and quantity are different
+        let ask_8 = Ask::new(1.23, 1000.56, Exchange::Binance);
+        let ask_9 = Ask::new(1.20, 1200.56, Exchange::Bitstamp);
+
+        assert!(ask_8 > ask_9);
     }
     #[test]
     pub fn test_ask_equal() {
@@ -272,14 +282,12 @@ mod tests {
         let ask_0 = Ask::new(1.20, 1200.56, Exchange::Binance);
         let ask_1 = Ask::new(1.20, 1200.56, Exchange::Binance);
 
-        assert_eq!(ask_0 == ask_1, true);
+        assert!(ask_0 == ask_1);
 
         //the price and quantity are the same but the exchange is different
         let ask_2 = Ask::new(1.20, 1200.56, Exchange::Binance);
         let ask_3 = Ask::new(1.20, 1200.56, Exchange::Bitstamp);
 
-        assert_eq!(ask_2 == ask_3, true);
-
-        //TODO: add case for price and quant are different
+        assert!(ask_2 == ask_3);
     }
 }
