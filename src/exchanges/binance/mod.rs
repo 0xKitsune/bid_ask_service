@@ -6,11 +6,8 @@ pub mod error;
 mod stream;
 
 use crate::exchanges::Exchange;
-use crate::order_book::{self, PriceLevelUpdate};
-use crate::{
-    order_book::error::OrderBookError,
-    order_book::{OrderBook, PriceLevel},
-};
+use crate::order_book::price_level::{PriceLevel, PriceLevelUpdate};
+use crate::{order_book::error::OrderBookError, order_book::OrderBook};
 
 use async_trait::async_trait;
 use futures::{SinkExt, StreamExt};
@@ -80,7 +77,7 @@ mod tests {
 
     use crate::{
         exchanges::{binance::Binance, OrderBookService},
-        order_book::{error::OrderBookError, PriceLevel, PriceLevelUpdate},
+        order_book::{error::OrderBookError, price_level::PriceLevelUpdate},
     };
     use futures::FutureExt;
 

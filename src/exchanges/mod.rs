@@ -7,8 +7,8 @@ use async_trait::async_trait;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::task::JoinHandle;
 
-use crate::order_book::PriceLevelUpdate;
-use crate::{order_book::error::OrderBookError, order_book::PriceLevel};
+use crate::order_book::price_level::PriceLevelUpdate;
+use crate::{order_book::error::OrderBookError, order_book::price_level::PriceLevel};
 
 use self::binance::Binance;
 

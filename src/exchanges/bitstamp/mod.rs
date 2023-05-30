@@ -4,7 +4,10 @@ mod stream;
 use async_trait::async_trait;
 use tokio::{sync::mpsc::Sender, task::JoinHandle};
 
-use crate::order_book::{error::OrderBookError, PriceLevel, PriceLevelUpdate};
+use crate::order_book::{
+    error::OrderBookError,
+    price_level::{PriceLevel, PriceLevelUpdate},
+};
 
 use self::stream::{spawn_order_book_stream, spawn_stream_handler};
 
@@ -47,10 +50,10 @@ mod tests {
         Arc,
     };
 
-    use crate::{exchanges::bitstamp::Bitstamp, order_book::PriceLevelUpdate};
+    use crate::{exchanges::bitstamp::Bitstamp, order_book::price_level::PriceLevelUpdate};
     use crate::{
         exchanges::{binance::Binance, OrderBookService},
-        order_book::{error::OrderBookError, PriceLevel},
+        order_book::{error::OrderBookError, price_level::PriceLevel},
     };
     use futures::FutureExt;
 

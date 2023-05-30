@@ -4,14 +4,13 @@ use tokio::{sync::mpsc::Receiver, task::JoinHandle};
 use super::Binance;
 use crate::exchanges::binance::error::BinanceError;
 use crate::order_book::error::OrderBookError;
+use crate::order_book::price_level::{OrderType, PriceLevel, PriceLevelUpdate};
 
 use core::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use crate::exchanges::{Exchange, OrderBookService};
-use crate::order_book::{self, OrderType, PriceLevelUpdate};
-use crate::order_book::{OrderBook, PriceLevel};
 
 use async_trait::async_trait;
 use futures::{SinkExt, StreamExt};
@@ -296,7 +295,7 @@ mod tests {
     use crate::exchanges::binance::stream::OrderBookUpdate;
     use crate::{
         exchanges::{binance::Binance, OrderBookService},
-        order_book::{error::OrderBookError, PriceLevel},
+        order_book::{error::OrderBookError, price_level::PriceLevel},
     };
     use futures::FutureExt;
     use tokio::sync::mpsc::Receiver;
