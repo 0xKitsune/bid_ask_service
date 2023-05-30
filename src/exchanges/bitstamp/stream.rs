@@ -3,7 +3,7 @@ use std::{fs::File, io::Write};
 use super::Bitstamp;
 use crate::{
     exchanges::{exchange_utils, Exchange},
-    order_book::price_level::{Ask, Bid, OrderType, PriceLevel, PriceLevelUpdate},
+    order_book::price_level::{Ask, Bid, OrderType, PriceLevelUpdate},
 };
 use async_trait::async_trait;
 use futures::{SinkExt, StreamExt};
@@ -283,7 +283,7 @@ mod tests {
     use crate::exchanges::bitstamp::stream::spawn_order_book_stream;
     use crate::{
         exchanges::{binance::Binance, bitstamp::Bitstamp, OrderBookService},
-        order_book::{error::OrderBookError, price_level::PriceLevel},
+        order_book::error::OrderBookError,
     };
     use futures::FutureExt;
     #[tokio::test]

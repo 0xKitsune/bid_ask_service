@@ -4,7 +4,7 @@ use tokio::{sync::mpsc::Receiver, task::JoinHandle};
 use super::Binance;
 use crate::exchanges::binance::error::BinanceError;
 use crate::order_book::error::OrderBookError;
-use crate::order_book::price_level::{Ask, Bid, OrderType, PriceLevel, PriceLevelUpdate};
+use crate::order_book::price_level::{Ask, Bid, OrderType, PriceLevelUpdate};
 
 use core::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -275,7 +275,7 @@ mod tests {
     use crate::exchanges::binance::stream::OrderBookUpdate;
     use crate::{
         exchanges::{binance::Binance, OrderBookService},
-        order_book::{error::OrderBookError, price_level::PriceLevel},
+        order_book::error::OrderBookError,
     };
     use futures::FutureExt;
     use tokio::sync::mpsc::Receiver;

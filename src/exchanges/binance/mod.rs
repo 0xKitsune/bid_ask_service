@@ -6,8 +6,8 @@ pub mod error;
 mod stream;
 
 use crate::exchanges::Exchange;
-use crate::order_book::price_level::{PriceLevel, PriceLevelUpdate};
-use crate::{order_book::error::OrderBookError, order_book::OrderBook};
+use crate::order_book::error::OrderBookError;
+use crate::order_book::price_level::PriceLevelUpdate;
 
 use async_trait::async_trait;
 use futures::{SinkExt, StreamExt};

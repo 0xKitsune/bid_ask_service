@@ -1,9 +1,6 @@
-use crate::{
-    exchanges::{
-        binance::error::{self, BinanceError},
-        bitstamp::error::BitstampError,
-    },
-    order_book::PriceLevel,
+use crate::exchanges::{
+    binance::error::{self, BinanceError},
+    bitstamp::error::BitstampError,
 };
 
 use super::PriceLevelUpdate;

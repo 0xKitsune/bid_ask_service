@@ -7,8 +7,8 @@ use async_trait::async_trait;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::task::JoinHandle;
 
+use crate::order_book::error::OrderBookError;
 use crate::order_book::price_level::PriceLevelUpdate;
-use crate::{order_book::error::OrderBookError, order_book::price_level::PriceLevel};
 
 use self::binance::Binance;
 
@@ -25,10 +25,10 @@ pub trait OrderBookService {
     ) -> Result<Vec<JoinHandle<Result<(), OrderBookError>>>, OrderBookError>;
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
 pub enum Exchange {
-    Binance,
     Bitstamp,
+    Binance,
 }
 
 impl Exchange {
