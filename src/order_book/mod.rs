@@ -14,7 +14,7 @@ use self::{
     error::OrderBookError,
     price_level::{Ask, Bid, PriceLevelUpdate},
 };
-pub mod btree_map;
+pub mod btree_set;
 pub mod error;
 pub mod price_level;
 

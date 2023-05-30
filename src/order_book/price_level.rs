@@ -97,16 +97,6 @@ impl PartialOrd for Bid {
 
 impl Ord for Bid {
     fn cmp(&self, other: &Self) -> Ordering {
-        //TODO: there might be a clever way to use the cmp function to order this. we might be able to make each node and exchange unique by checking if the
-        //TODO: price and the exchange is the same. if it is, then we know that it is equal, then we can know if we need to update that specific node or not
-        //TODO: otherwise if the exchange is different but the price and quantity are the same, we can always just call that greater.
-
-        //TODO: FIXME: if the quant and the price are the same, we should look at the exchange to know which is greater,
-        //TODO:FIXME:this also allows for precedence in the exchange if for some reason we favor one exchange over another
-
-        //TODO: FIXME: This also allows us to fix our issue, basically if the price and the exchange are equal, then the order is equal and it should be replaced
-        //TODO: FIXME: if the exchange is different but the price and quantity are the same, it takes exchange precedence
-
         //First check if the price is equal
         match self.price.cmp(&other.price) {
             //If the price is equal, check the exchange, this allows the order book structure to know to replace the quantity for this value
