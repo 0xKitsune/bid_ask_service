@@ -29,11 +29,10 @@ impl BTreeSetOrderBook {
 //TODO: then you can return the top m bids or asks if its updated
 
 impl OrderBook for BTreeSetOrderBook {
-    //TODO: add a max depth arg, could also return a bool
     fn update_bids(&mut self, bid: Bid, max_depth: usize) {
         if bid.get_quantity().0 == 0.0 {
             self.bids.remove(&bid);
-        } else {
+        } else if self.bids.len() < max_depth {
             if self.bids.contains(&bid) {
                 //We have to remove and insert because the replace method replaces the value at the pointer.
                 //Since the two are seen as equal, it does not reorder the tree
@@ -42,19 +41,45 @@ impl OrderBook for BTreeSetOrderBook {
             } else {
                 self.bids.insert(bid);
             }
+        } else {
+            // check if the bid is better than the worst bid
+            let bid_is_better = {
+                //We can unwrap this because we have already asserted that the bids.len() is not less than the max depth
+                //signifying that there is at least one value
+                let worst_bid = self.bids.iter().next().unwrap();
+                bid > *worst_bid
+            };
+
+            if bid_is_better {
+                self.bids.pop_first();
+                self.bids.insert(bid);
+            }
         }
     }
 
     fn update_asks(&mut self, ask: Ask, max_depth: usize) {
         if ask.get_quantity().0 == 0.0 {
             self.asks.remove(&ask);
-        } else {
+        } else if self.asks.len() < max_depth {
             if self.asks.contains(&ask) {
                 //We have to remove and insert because the replace method replaces the value at the pointer.
                 //Since the two are seen as equal, it does not reorder the tree
                 self.asks.remove(&ask);
                 self.asks.insert(ask);
             } else {
+                self.asks.insert(ask);
+            }
+        } else {
+            // check if the bid is better than the worst bid
+            let ask_is_better = {
+                //We can unwrap this because we have already asserted that the bids.len() is not less than the max depth
+                //signifying that there is at least one value
+                let worst_ask = self.asks.iter().next_back().unwrap();
+                ask < *worst_ask
+            };
+
+            if ask_is_better {
+                self.asks.pop_last();
                 self.asks.insert(ask);
             }
         }
