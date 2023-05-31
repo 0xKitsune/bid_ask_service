@@ -801,6 +801,7 @@ dependencies = [
  "log",
  "log4rs",
  "ordered-float 3.7.0",
+ "rand",
  "reqwest",
  "serde",
  "serde_derive",

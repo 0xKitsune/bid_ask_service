@@ -10,10 +10,8 @@
 
 
 ## TODO: for tonight:
-- Update all of the ord tests for bid/ask
 - feed all of the updates to the aggregated order book test
 - think through how to cache the top 10 bids/asks and the spread
-- add benches to order book impl
 - gRPC server
 
 

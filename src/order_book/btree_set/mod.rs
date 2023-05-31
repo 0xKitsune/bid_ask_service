@@ -10,6 +10,7 @@ use super::{
     Order, OrderBook,
 };
 
+#[derive(Clone)] //Clone used for benching
 pub struct BTreeSetOrderBook {
     pub bids: BTreeSet<Bid>,
     pub asks: BTreeSet<Ask>,

@@ -21,6 +21,7 @@ serde_derive = "1.0.163"
 serde = "1.0.163"
 serde_with = "3.0.0"
 ordered-float = "3.7.0"
+rand = "0.8.5"
 
 
 [[bin]]
