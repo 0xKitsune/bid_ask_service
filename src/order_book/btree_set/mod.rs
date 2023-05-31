@@ -88,15 +88,37 @@ impl OrderBook for BTreeSetOrderBook {
     fn get_best_bid(&self) -> Option<&Bid> {
         self.bids.iter().last()
     }
+
     fn get_best_ask(&self) -> Option<&Ask> {
         self.asks.iter().next()
     }
 
     fn get_best_n_asks(&self, n: usize) -> Vec<Option<Ask>> {
-        todo!()
+        let mut best_asks = Vec::new();
+
+        for ask in self.asks.iter().take(n) {
+            best_asks.push(Some(ask.clone()));
+        }
+
+        while best_asks.len() < n {
+            best_asks.push(None);
+        }
+
+        best_asks
     }
+
     fn get_best_n_bids(&self, n: usize) -> Vec<Option<Bid>> {
-        todo!()
+        let mut best_bids = Vec::new();
+
+        for bid in self.bids.iter().rev().take(n) {
+            best_bids.push(Some(bid.clone()));
+        }
+
+        while best_bids.len() < n {
+            best_bids.push(None);
+        }
+
+        best_bids
     }
 }
 
@@ -154,6 +176,46 @@ mod tests {
         let best_bid = order_book.get_best_bid();
         assert!(*best_bid.expect("Could not get best bid") == bid_6);
 
+        assert_eq!(actual_bids, expected_bids);
+    }
+
+    #[test]
+    fn test_insert_bid_past_max_depth() {
+        let mut order_book = BTreeSetOrderBook::new();
+
+        let bid_0 = Bid::new(100.00, 50.0, Exchange::Binance);
+        let bid_1 = Bid::new(100.00, 50.0, Exchange::Bitstamp);
+        let bid_2 = Bid::new(101.00, 50.0, Exchange::Binance);
+        let bid_3 = Bid::new(101.00, 50.0, Exchange::Bitstamp);
+        let bid_4 = Bid::new(103.00, 50.0, Exchange::Binance);
+        let bid_5 = Bid::new(102.00, 50.0, Exchange::Binance);
+        let bid_6 = Bid::new(104.00, 50.0, Exchange::Binance);
+
+        // create an expected bids vector
+        let mut expected_bids = vec![
+            bid_2.clone(),
+            bid_3.clone(),
+            bid_4.clone(),
+            bid_5.clone(),
+            bid_6.clone(),
+        ];
+        // sort the vector because BTreeSet is ordered
+        expected_bids.sort();
+
+        order_book.update_bids(bid_0, 5);
+        order_book.update_bids(bid_1, 5);
+        order_book.update_bids(bid_2, 5);
+        order_book.update_bids(bid_3, 5);
+        order_book.update_bids(bid_4, 5);
+        order_book.update_bids(bid_5, 5);
+        order_book.update_bids(bid_6.clone(), 5);
+
+        // collect the actual bids from the BTreeSet into a vector
+        let actual_bids: Vec<Bid> = order_book.bids.iter().cloned().collect();
+
+        let best_bid = order_book.get_best_bid();
+        assert!(*best_bid.expect("Could not get best bid") == bid_6);
+        assert!(order_book.bids.len() == 5);
         assert_eq!(actual_bids, expected_bids);
     }
 
@@ -291,6 +353,46 @@ mod tests {
         let best_ask = order_book.get_best_ask();
         assert!(*best_ask.expect("Could not get best ask") == ask_1);
 
+        assert_eq!(actual_asks, expected_asks);
+    }
+
+    #[test]
+    fn test_insert_ask_past_max_depth() {
+        let mut order_book = BTreeSetOrderBook::new();
+
+        let ask_0 = Ask::new(100.00, 50.0, Exchange::Binance);
+        let ask_1 = Ask::new(100.00, 1000.0, Exchange::Bitstamp);
+        let ask_2 = Ask::new(101.00, 50.0, Exchange::Binance);
+        let ask_3 = Ask::new(101.00, 50.0, Exchange::Bitstamp);
+        let ask_4 = Ask::new(102.00, 50.0, Exchange::Binance);
+        let ask_5 = Ask::new(103.00, 50.0, Exchange::Binance);
+        let ask_6 = Ask::new(104.00, 50.0, Exchange::Binance);
+
+        // create an expected bids vector
+        let mut expected_asks = vec![
+            ask_0.clone(),
+            ask_1.clone(),
+            ask_2.clone(),
+            ask_3.clone(),
+            ask_4.clone(),
+        ];
+        // sort the vector because BTreeSet is ordered
+        expected_asks.sort();
+
+        order_book.update_asks(ask_0, 5);
+        order_book.update_asks(ask_1.clone(), 5);
+        order_book.update_asks(ask_2, 5);
+        order_book.update_asks(ask_3, 5);
+        order_book.update_asks(ask_4, 5);
+        order_book.update_asks(ask_5, 5);
+        order_book.update_asks(ask_6, 5);
+
+        // collect the actual bids from the BTreeSet into a vector
+        let actual_asks: Vec<Ask> = order_book.asks.iter().cloned().collect();
+
+        let best_ask = order_book.get_best_ask();
+        assert!(*best_ask.expect("Could not get best ask") == ask_1);
+        assert!(order_book.asks.len() == 5);
         assert_eq!(actual_asks, expected_asks);
     }
 

@@ -45,9 +45,9 @@ pub trait OrderBook: Debug {
     fn update_bids(&mut self, bid: Bid, max_depth: usize);
     fn update_asks(&mut self, ask: Ask, max_depth: usize);
     fn get_best_bid(&self) -> Option<&Bid>;
-    fn get_best_n_bids(&self, n: usize) -> Vec<Option<Bid>>;
+    fn get_best_n_bids(&self, n: usize) -> Vec<Option<Bid>>; //TODO: maybe change this to serialize best n bids
     fn get_best_ask(&self) -> Option<&Ask>;
-    fn get_best_n_asks(&self, n: usize) -> Vec<Option<Ask>>;
+    fn get_best_n_asks(&self, n: usize) -> Vec<Option<Ask>>; //TODO: maybe change this to serialize best n asks
 
     //TODO: maybe add some functions that get best n bids and get best n asks?
 }
