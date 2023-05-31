@@ -120,58 +120,80 @@ where
 
         handles.push(tokio::spawn(async move {
             let mut best_bid = Bid::default();
-            let mut best_ask = Ask::default();
-
             let mut best_n_bids: Vec<Option<Bid>> = vec![None; best_n_orders];
             let mut worst_bid = Bid::default();
 
+            let mut best_ask = Ask::default();
             let mut best_n_asks: Vec<Option<Ask>> = vec![None; best_n_orders];
-            let mut worst_ask = Ask::default();
+            let mut worst_ask = &Ask::default();
 
             while let Some(price_level_update) = price_level_rx.recv().await {
-                //TODO: FIXME: you can add a var here to check if the best ask is succeeded and then update the best ask,
-                //best n asks, best bid, etc
-
-                let mut update_best_bids = false;
-                let mut update_best_asks = false;
-
-                //TODO: can we make this concurrent so that these things happen at the same time?
-                for ask in price_level_update.asks {
-                    //ie its less than the worst ask,
-                    //if the price is less, its better, if the price is the same and the quantity is more, its better, if the price and the quantity is the same,
-                    if ask.cmp(&worst_ask).is_le() {
-                        //If it is less than or equal we need to update the best asks, equal because this signifies that the quantity on the worst ask out of the n best asks needs to be updated
-                        update_best_asks = true;
+                let bids_fut = async {
+                    let mut update_best_bids = false;
+                    for bid in price_level_update.bids {
+                        if bid.cmp(&worst_bid).is_ge() {
+                            update_best_bids = true;
+                        }
+                        bids.lock().await.update_bids(bid, max_order_book_depth);
                     }
 
-                    asks.lock().await.update_asks(ask, max_order_book_depth);
-                }
-
-                //TODO: can we make this concurrent so that these things happen at the same time?
-                for bid in price_level_update.bids {
-                    if bid.cmp(&worst_bid).is_ge() {
-                        update_best_bids = true;
-                    }
-
-                    bids.lock().await.update_bids(bid, max_order_book_depth);
-                }
-
-                //TODO: do this concurrently
-                if update_best_bids {
-                    best_n_bids = bids.lock().await.get_best_n_bids(best_n_orders);
-                    if let Some(bid) = &best_n_bids[0] {
-                        best_bid = bid.clone(); //TODO: see if you need to clone here
+                    if update_best_bids {
                         best_n_bids = bids.lock().await.get_best_n_bids(best_n_orders);
-                    }
-                }
+                        if let Some(bid) = &best_n_bids[0] {
+                            let best_bid = bid.clone();
+                            let best_n_bids = bids.lock().await.get_best_n_bids(best_n_orders);
 
-                if update_best_asks {
-                    best_n_asks = asks.lock().await.get_best_n_asks(best_n_orders);
-                    if let Some(ask) = &best_n_asks[0] {
-                        best_ask = ask.clone(); //TODO: see if you need to clone here
-                        best_n_asks = asks.lock().await.get_best_n_asks(best_n_orders);
+                            //We can unwrap here because we have asserted that there is at least one bid in best_n_bids
+                            let worst_bid = best_n_bids
+                                .last()
+                                .expect("Could not get worst bid")
+                                .clone()
+                                .expect("Last bid in best 'n' bids is None");
+
+                            Some((best_n_bids, best_bid, worst_bid))
+                        } else {
+                            //TODO: log an error here
+                            None
+                        }
+                    } else {
+                        None
                     }
-                }
+                };
+
+                let asks_fut = async {
+                    let mut update_best_asks = false;
+
+                    for ask in price_level_update.asks {
+                        if ask.cmp(&worst_ask).is_le() {
+                            update_best_asks = true;
+                        }
+                        asks.lock().await.update_asks(ask, max_order_book_depth);
+                    }
+
+                    if update_best_asks {
+                        best_n_asks = asks.lock().await.get_best_n_asks(best_n_orders);
+                        if let Some(ask) = &best_n_asks[0] {
+                            let best_ask = ask.clone(); //TODO: see if you need to clone here
+                            let best_n_asks = asks.lock().await.get_best_n_asks(best_n_orders);
+
+                            //We can unwrap here because we have asserted that there is at least one bid in best_n_bids
+                            let worst_ask = best_n_asks
+                                .last()
+                                .expect("Could not get worst bid")
+                                .clone()
+                                .expect("Last bid in best 'n' bids is None");
+
+                            Some((best_n_asks, best_ask, worst_ask))
+                        } else {
+                            //TODO: log an error here
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                };
+
+                let (updated_bids, updated_asks) = tokio::join!(bids_fut, asks_fut);
 
                 //TODO: if bid or ask has been updated, send through the channel to the grpc server
 
