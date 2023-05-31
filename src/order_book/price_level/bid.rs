@@ -44,7 +44,9 @@ impl Order for Bid {
 
 impl PartialEq for Bid {
     fn eq(&self, other: &Self) -> bool {
-        self.cmp(other).is_eq()
+        self.price == other.price
+            && self.quantity == other.quantity
+            && self.exchange == other.exchange
     }
 }
 
@@ -81,6 +83,12 @@ mod tests {
         exchanges::Exchange,
         order_book::{Ask, Bid},
     };
+
+
+
+
+    the update to the partial eq will break some things just a heads up, we will need to update the gt lt and eq tests to use cmp
+    since eq is a strict equality check now
 
     #[test]
     pub fn test_bid_greater() {

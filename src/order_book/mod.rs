@@ -37,8 +37,8 @@ pub trait Order: Ord {
 }
 
 pub trait OrderBook {
-    fn update_bids(&mut self, bid: Bid) -> Result<(), OrderBookError>;
-    fn update_asks(&mut self, ask: Ask) -> Result<(), OrderBookError>;
+    fn update_bids(&mut self, bid: Bid);
+    fn update_asks(&mut self, ask: Ask);
 }
 
 // pub struct AggregatedOrderBook<B: OrderBook> {

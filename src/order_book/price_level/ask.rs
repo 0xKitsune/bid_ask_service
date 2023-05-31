@@ -44,7 +44,9 @@ impl Order for Ask {
 
 impl PartialEq for Ask {
     fn eq(&self, other: &Self) -> bool {
-        self.cmp(other).is_eq()
+        self.price == other.price
+            && self.quantity == other.quantity
+            && self.exchange == other.exchange
     }
 }
 
@@ -80,6 +82,10 @@ impl Ord for Ask {
 #[cfg(test)]
 mod tests {
 
+
+    the update to the partial eq will break some things just a heads up, we will need to update the gt lt and eq tests to use cmp
+    since eq is a strict equality check now
+
     use crate::{
         exchanges::Exchange,
         order_book::{Ask, Bid},
@@ -97,7 +103,7 @@ mod tests {
         let ask_2 = Ask::new(1.20, 1200.56, Exchange::Binance);
         let ask_3 = Ask::new(1.20, 1300.56, Exchange::Bitstamp);
 
-        assert!(ask_3 < ask_2);
+        assert!(ask_3.cmp(&ask_2).is_le());
 
         //the price is less but the quantity is the same and the exchanges are different
         let ask_4 = Ask::new(1.25, 1200.56, Exchange::Binance);
@@ -168,5 +174,8 @@ mod tests {
         let ask_3 = Ask::new(1.20, 1200.56, Exchange::Bitstamp);
 
         assert!(ask_2 == ask_3);
+
+
+        add a test that is strict equality as well
     }
 }
