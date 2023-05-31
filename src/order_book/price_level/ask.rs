@@ -27,6 +27,11 @@ impl Ask {
     }
 }
 
+impl Default for Ask {
+    fn default() -> Self {
+        Ask::new(f64::MAX, 0.0, Exchange::Binance)
+    }
+}
 impl Order for Ask {
     fn get_price(&self) -> &OrderedFloat<f64> {
         &self.price
@@ -68,9 +73,13 @@ impl Ord for Ask {
             Ordering::Equal => match self.exchange.cmp(&other.exchange).reverse() {
                 Ordering::Equal => Ordering::Equal,
 
+                //TODO: because the exchange is greater, it is returning {} when trying to find the key in the btree
+
                 //If the price is the same but the exchange is different, compare the quantity
-                exchange_order => match self.quantity.cmp(&other.quantity).reverse() {
-                    Ordering::Equal => exchange_order,
+                _ => match self.quantity.cmp(&other.quantity).reverse() {
+                    //TODO: add a note as to why we give strictly less ordering. ultimately, this is because when trying to check if a key is contained within an btree or btreemap/set, it uses the ord
+                    //TODO: trait. This make it so that if the exchange has a higher order and it stops searching.
+                    Ordering::Equal => Ordering::Less,
                     other => other,
                 },
             },
@@ -172,5 +181,6 @@ mod tests {
         let ask_3 = Ask::new(1.20, 1200.56, Exchange::Bitstamp);
 
         assert!(ask_2.cmp(&ask_3).is_eq());
+        assert!(ask_2 != ask_3);
     }
 }

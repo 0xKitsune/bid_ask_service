@@ -26,7 +26,7 @@ rand = "0.8.5"
 
 [[bin]]
 name = "bid_ask_spread"
-path = "bin/bid_ask_spread.rs"
+path = "bin/bid_ask_service.rs"
 
 
 

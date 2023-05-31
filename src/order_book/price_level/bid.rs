@@ -27,6 +27,12 @@ impl Bid {
     }
 }
 
+impl Default for Bid {
+    fn default() -> Self {
+        Bid::new(0.0, 0.0, Exchange::Binance)
+    }
+}
+
 impl Order for Bid {
     fn get_price(&self) -> &OrderedFloat<f64> {
         &self.price
@@ -64,10 +70,11 @@ impl Ord for Bid {
             //If the price is equal, check the exchange, this allows the order book structure to know to replace the quantity for this value
             Ordering::Equal => match self.exchange.cmp(&other.exchange) {
                 Ordering::Equal => Ordering::Equal,
-
                 //If the price is the same but the exchange is different, compare the quantity
-                exchange_order => match self.quantity.cmp(&other.quantity) {
-                    Ordering::Equal => exchange_order,
+                _ => match self.quantity.cmp(&other.quantity) {
+                    //TODO: add a note as to why we give strictly less ordering. Ultimatley, this is because when trying to check if a key is contained within an btree or btreemap/set, it uses the ord
+                    //TODO: trait. This make it so that if the exchange has a higher order and it stops searching.
+                    Ordering::Equal => Ordering::Less,
                     other => other,
                 },
             },
@@ -160,5 +167,6 @@ mod tests {
         let bid_3 = Bid::new(1.20, 1200.56, Exchange::Binance);
 
         assert!(bid_2.cmp(&bid_3).is_eq());
+        assert!(bid_2 != bid_3);
     }
 }
