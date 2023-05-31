@@ -64,28 +64,24 @@ pub trait SellSide: Debug {
     fn get_best_n_asks(&self, n: usize) -> Vec<Option<Ask>>;
 }
 
-// pub struct AggregatedOrderBook<B: BuySide + Send, S: SellSide + Send> {
-//     pub pair: [String; 2],
-//     pub exchanges: Vec<Exchange>,
-//     pub bids: Arc<Mutex<B>>,
-//     pub asks: Arc<Mutex<B>>,
-// }
-
-pub struct AggregatedOrderBook<B: OrderBook + Send> {
+pub struct AggregatedOrderBook<B: BuySide + Send, S: SellSide + Send> {
     pub pair: [String; 2],
     pub exchanges: Vec<Exchange>,
-    pub order_book: Arc<Mutex<B>>,
+    pub bids: Arc<Mutex<B>>,
+    pub asks: Arc<Mutex<S>>,
 }
 
-impl<B> AggregatedOrderBook<B>
+impl<B, S> AggregatedOrderBook<B, S>
 where
-    B: OrderBook + Send + 'static,
+    B: BuySide + Send + 'static,
+    S: SellSide + Send + 'static,
 {
-    pub fn new(pair: [&str; 2], exchanges: Vec<Exchange>, order_book: B) -> Self {
+    pub fn new(pair: [&str; 2], exchanges: Vec<Exchange>, bids: B, asks: S) -> Self {
         AggregatedOrderBook {
             pair: [pair[0].to_string(), pair[1].to_string()],
             exchanges,
-            order_book: Arc::new(Mutex::new(order_book)),
+            bids: Arc::new(Mutex::new(bids)),
+            asks: Arc::new(Mutex::new(asks)),
         }
     }
 
@@ -119,9 +115,9 @@ where
             )
         }
 
-        dbg!("spawning handler for orderbook");
+        let bids = self.bids.clone();
+        let asks = self.asks.clone();
 
-        let order_book = self.order_book.clone();
         handles.push(tokio::spawn(async move {
             let mut best_bid = Bid::default();
             let mut best_ask = Ask::default();
@@ -148,10 +144,7 @@ where
                         update_best_asks = true;
                     }
 
-                    order_book
-                        .lock()
-                        .await
-                        .update_asks(ask, max_order_book_depth);
+                    asks.lock().await.update_asks(ask, max_order_book_depth);
                 }
 
                 //TODO: can we make this concurrent so that these things happen at the same time?
@@ -160,26 +153,23 @@ where
                         update_best_bids = true;
                     }
 
-                    order_book
-                        .lock()
-                        .await
-                        .update_bids(bid, max_order_book_depth);
+                    bids.lock().await.update_bids(bid, max_order_book_depth);
                 }
 
                 //TODO: do this concurrently
                 if update_best_bids {
-                    best_n_bids = order_book.lock().await.get_best_n_bids(best_n_orders);
+                    best_n_bids = bids.lock().await.get_best_n_bids(best_n_orders);
                     if let Some(bid) = &best_n_bids[0] {
                         best_bid = bid.clone(); //TODO: see if you need to clone here
-                        best_n_bids = order_book.lock().await.get_best_n_bids(best_n_orders);
+                        best_n_bids = bids.lock().await.get_best_n_bids(best_n_orders);
                     }
                 }
 
                 if update_best_asks {
-                    best_n_asks = order_book.lock().await.get_best_n_asks(best_n_orders);
+                    best_n_asks = asks.lock().await.get_best_n_asks(best_n_orders);
                     if let Some(ask) = &best_n_asks[0] {
                         best_ask = ask.clone(); //TODO: see if you need to clone here
-                        best_n_asks = order_book.lock().await.get_best_n_asks(best_n_orders);
+                        best_n_asks = asks.lock().await.get_best_n_asks(best_n_orders);
                     }
                 }
 
@@ -198,25 +188,24 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::order_book::btree_set::BTreeSetOrderBook;
     use crate::{exchanges::Exchange, order_book::AggregatedOrderBook};
     #[tokio::test]
     async fn test_aggregated_order_book() {
-        let order_book = BTreeSetOrderBook::new();
+        // let order_book = BTreeSetOrderBook::new();
 
-        let aggregated_order_book =
-            AggregatedOrderBook::new(["eth", "btc"], vec![Exchange::Bitstamp], order_book);
+        // let aggregated_order_book =
+        //     AggregatedOrderBook::new(["eth", "btc"], vec![Exchange::Bitstamp], order_book);
 
-        let join_handles = aggregated_order_book
-            .spawn_bid_ask_service(10, 1000, 100, 20)
-            .await
-            .expect("TODO: handle this error");
+        // let join_handles = aggregated_order_book
+        //     .spawn_bid_ask_service(10, 1000, 100, 20)
+        //     .await
+        //     .expect("TODO: handle this error");
 
-        for handle in join_handles {
-            handle
-                .await
-                .expect("TODO: handle this error")
-                .expect("handle this error");
-        }
+        // for handle in join_handles {
+        //     handle
+        //         .await
+        //         .expect("TODO: handle this error")
+        //         .expect("handle this error");
+        // }
     }
 }

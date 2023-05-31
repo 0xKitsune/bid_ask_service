@@ -9,17 +9,16 @@ use criterion::{
 use kbas::{
     exchanges::Exchange,
     order_book::{
-        btree_set::BTreeSetOrderBook,
         price_level::{ask::Ask, bid::Bid},
-        Order, OrderBook,
+        BuySide, Order, OrderBook, SellSide,
     },
 };
 use ordered_float::OrderedFloat;
 use rand::Rng;
 use tokio::{runtime::Runtime, sync::Mutex};
 
-fn initialize_order_book() -> BTreeSetOrderBook {
-    let mut order_book = BTreeSetOrderBook::new();
+fn initialize_bids() -> BTreeSet<Bid> {
+    let mut order_book = BTreeSet::<Bid>::new();
     let mut rng = rand::thread_rng();
 
     for _ in 0..50 {
@@ -28,6 +27,13 @@ fn initialize_order_book() -> BTreeSetOrderBook {
         let bid = Bid::new(price, quantity, Exchange::Binance);
         order_book.update_bids(bid, 50);
     }
+
+    order_book
+}
+
+fn initialize_asks() -> BTreeSet<Ask> {
+    let mut order_book = BTreeSet::<Ask>::new();
+    let mut rng = rand::thread_rng();
 
     for _ in 0..50 {
         let price: f64 = rng.gen_range(80.0..600.0);
@@ -47,7 +53,7 @@ fn create_bid() -> Bid {
 }
 
 fn bench_insert_bid(c: &mut Criterion) {
-    let mut order_book = initialize_order_book();
+    let mut order_book = initialize_bids();
 
     c.bench_function("insert bid", |b| {
         b.iter_batched_ref(
@@ -58,11 +64,10 @@ fn bench_insert_bid(c: &mut Criterion) {
     });
 }
 
-fn get_random_bid(order_book: &BTreeSetOrderBook) -> Bid {
+fn get_random_bid(order_book: &BTreeSet<Bid>) -> Bid {
     let mut rng = rand::thread_rng();
-    let index = rng.gen_range(0..order_book.bids.len());
+    let index = rng.gen_range(0..order_book.len());
     order_book
-        .bids
         .iter()
         .nth(index)
         .expect("could not get random bid")
@@ -73,7 +78,7 @@ fn bench_remove_bid(c: &mut Criterion) {
     c.bench_function("remove bid", |b| {
         b.iter_batched_ref(
             || {
-                let order_book = initialize_order_book();
+                let order_book = initialize_bids();
                 (order_book.clone(), get_random_bid(&order_book))
             },
             |(ref mut order_book, bid)| {
@@ -86,7 +91,7 @@ fn bench_remove_bid(c: &mut Criterion) {
 }
 
 fn bench_update_bid(c: &mut Criterion) {
-    let order_book = initialize_order_book();
+    let order_book = initialize_bids();
 
     c.bench_function("update bid", |b| {
         b.iter_batched(
@@ -111,7 +116,7 @@ fn create_ask() -> Ask {
 }
 
 fn bench_insert_ask(c: &mut Criterion) {
-    let mut order_book = initialize_order_book();
+    let mut order_book = initialize_asks();
 
     c.bench_function("insert ask", |b| {
         b.iter_batched_ref(
@@ -122,11 +127,10 @@ fn bench_insert_ask(c: &mut Criterion) {
     });
 }
 
-fn get_random_ask(order_book: &BTreeSetOrderBook) -> Ask {
+fn get_random_ask(order_book: &BTreeSet<Ask>) -> Ask {
     let mut rng = rand::thread_rng();
-    let index = rng.gen_range(0..order_book.asks.len());
+    let index = rng.gen_range(0..order_book.len());
     order_book
-        .asks
         .iter()
         .nth(index)
         .expect("could not get random ask")
@@ -137,7 +141,7 @@ fn bench_remove_ask(c: &mut Criterion) {
     c.bench_function("remove ask", |b| {
         b.iter_batched_ref(
             || {
-                let order_book = initialize_order_book();
+                let order_book = initialize_asks();
                 (order_book.clone(), get_random_ask(&order_book))
             },
             |(ref mut order_book, ask)| {
@@ -150,7 +154,7 @@ fn bench_remove_ask(c: &mut Criterion) {
 }
 
 fn bench_update_ask(c: &mut Criterion) {
-    let order_book = initialize_order_book();
+    let order_book = initialize_asks();
 
     c.bench_function("update ask", |b| {
         b.iter_batched(
