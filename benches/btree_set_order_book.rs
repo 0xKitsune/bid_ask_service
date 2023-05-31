@@ -1,4 +1,11 @@
-use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+};
+
+use criterion::{
+    async_executor::AsyncExecutor, black_box, criterion_group, criterion_main, BatchSize, Criterion,
+};
 use kbas::{
     exchanges::Exchange,
     order_book::{
@@ -9,6 +16,7 @@ use kbas::{
 };
 use ordered_float::OrderedFloat;
 use rand::Rng;
+use tokio::{runtime::Runtime, sync::Mutex};
 
 fn initialize_order_book() -> BTreeSetOrderBook {
     let mut order_book = BTreeSetOrderBook::new();
@@ -116,7 +124,7 @@ fn bench_insert_ask(c: &mut Criterion) {
 
 fn get_random_ask(order_book: &BTreeSetOrderBook) -> Ask {
     let mut rng = rand::thread_rng();
-    let index = rng.gen_range(0..order_book.bids.len());
+    let index = rng.gen_range(0..order_book.asks.len());
     order_book
         .asks
         .iter()
@@ -163,6 +171,10 @@ fn bench_update_ask(c: &mut Criterion) {
 
 //TODO: also benches for get best n bids, get best n asks
 
+//TODO: also add benches to test updating multiple bids/asks async, vs sync
+
+//TODO: also add benches to test updating the order book as above but with a semaphore
+
 criterion_group!(
     benches,
     bench_insert_bid,
@@ -170,6 +182,6 @@ criterion_group!(
     bench_update_bid,
     bench_insert_ask,
     bench_remove_ask,
-    bench_update_ask
+    bench_update_ask,
 );
 criterion_main!(benches);

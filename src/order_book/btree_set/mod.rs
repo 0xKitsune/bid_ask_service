@@ -25,9 +25,6 @@ impl BTreeSetOrderBook {
     }
 }
 
-//TODO: we can do something like check if the bid is better than the worst bid, if it is, then update the tree, and remove the worst bid if its full
-//TODO: then you can return the top m bids or asks if its updated
-
 impl OrderBook for BTreeSetOrderBook {
     fn update_bids(&mut self, bid: Bid, max_depth: usize) {
         if bid.get_quantity().0 == 0.0 {
@@ -315,6 +312,53 @@ mod tests {
     }
 
     #[test]
+    fn test_get_best_n_bids() {
+        let mut order_book = BTreeSetOrderBook::new();
+        let bid_0 = Bid::new(100.00, 50.0, Exchange::Binance);
+        let bid_1 = Bid::new(100.00, 1000.0, Exchange::Bitstamp);
+        let bid_2 = Bid::new(101.00, 50.0, Exchange::Binance);
+        let bid_3 = Bid::new(101.00, 50.0, Exchange::Bitstamp);
+        let bid_4 = Bid::new(103.00, 50.0, Exchange::Binance);
+        let bid_5 = Bid::new(102.00, 50.0, Exchange::Binance);
+        let bid_6 = Bid::new(104.00, 50.0, Exchange::Binance);
+
+        let replacement_bid_1 = Bid::new(100.00, 3404.0, Exchange::Bitstamp);
+        let replacement_bid_3 = Bid::new(101.00, 250.0, Exchange::Bitstamp);
+        let replacement_bid_6 = Bid::new(104.00, 20.0, Exchange::Binance);
+
+        // create an expected bids vector
+        let expected_bids = vec![
+            Some(replacement_bid_6.clone()),
+            Some(bid_4.clone()),
+            Some(bid_5.clone()),
+        ];
+
+        order_book.update_bids(bid_4, 5);
+        order_book.update_bids(bid_5, 5);
+        order_book.update_bids(bid_6, 5);
+        order_book.update_bids(bid_0, 5);
+        order_book.update_bids(bid_1, 5);
+        order_book.update_bids(bid_2, 5);
+        order_book.update_bids(bid_3, 5);
+
+        //insert the replacement bids
+        order_book.update_bids(replacement_bid_6, 10);
+        order_book.update_bids(replacement_bid_3, 10);
+        order_book.update_bids(replacement_bid_1.clone(), 10);
+
+        let best_bids = order_book.get_best_n_bids(3);
+
+        assert_eq!(expected_bids, best_bids);
+
+        let empty_order_book = BTreeSetOrderBook::new();
+
+        let best_bids = empty_order_book.get_best_n_bids(10);
+        let expected_bids = vec![None; 10];
+
+        assert_eq!(best_bids, expected_bids);
+    }
+
+    #[test]
     fn test_insert_ask() {
         let mut order_book = BTreeSetOrderBook::new();
 
@@ -378,14 +422,13 @@ mod tests {
         ];
         // sort the vector because BTreeSet is ordered
         expected_asks.sort();
-
-        order_book.update_asks(ask_0, 5);
-        order_book.update_asks(ask_1.clone(), 5);
+        order_book.update_asks(ask_6, 5);
+        order_book.update_asks(ask_5, 5);
         order_book.update_asks(ask_2, 5);
         order_book.update_asks(ask_3, 5);
         order_book.update_asks(ask_4, 5);
-        order_book.update_asks(ask_5, 5);
-        order_book.update_asks(ask_6, 5);
+        order_book.update_asks(ask_0, 5);
+        order_book.update_asks(ask_1.clone(), 5);
 
         // collect the actual bids from the BTreeSet into a vector
         let actual_asks: Vec<Ask> = order_book.asks.iter().cloned().collect();
@@ -492,9 +535,53 @@ mod tests {
         assert_eq!(actual_asks, expected_asks);
     }
 
-    //TODO: add tests for find best n asks
+    #[test]
+    fn test_get_best_n_asks() {
+        let mut order_book = BTreeSetOrderBook::new();
+        let ask_0 = Ask::new(100.00, 50.0, Exchange::Binance);
+        let ask_1 = Ask::new(100.00, 1000.0, Exchange::Bitstamp);
+        let ask_2 = Ask::new(101.00, 50.0, Exchange::Binance);
+        let ask_3 = Ask::new(101.00, 50.0, Exchange::Bitstamp);
+        let ask_4 = Ask::new(103.00, 50.0, Exchange::Binance);
+        let ask_5 = Ask::new(102.00, 50.0, Exchange::Binance);
+        let ask_6 = Ask::new(104.00, 50.0, Exchange::Binance);
 
-    // TODO: add test for find best n bids
+        let replacement_ask_1 = Ask::new(100.00, 3404.0, Exchange::Bitstamp);
+        let replacement_ask_3 = Ask::new(101.00, 250.0, Exchange::Bitstamp);
+        let replacement_ask_6 = Ask::new(104.00, 20.0, Exchange::Binance);
 
-    //TODO: add test for inserting past max depth
+        // create an expected bids vector
+        let mut expected_asks = vec![
+            Some(ask_0.clone()),
+            Some(replacement_ask_1.clone()),
+            Some(replacement_ask_3.clone()),
+        ];
+
+        // sort the vector because BTreeSet is ordered
+        expected_asks.sort();
+
+        order_book.update_asks(ask_4, 5);
+        order_book.update_asks(ask_5, 5);
+        order_book.update_asks(ask_6, 5);
+        order_book.update_asks(ask_0, 5);
+        order_book.update_asks(ask_1, 5);
+        order_book.update_asks(ask_2, 5);
+        order_book.update_asks(ask_3, 5);
+
+        //insert the replacement bids
+        order_book.update_asks(replacement_ask_6, 10);
+        order_book.update_asks(replacement_ask_3, 10);
+        order_book.update_asks(replacement_ask_1.clone(), 10);
+
+        let best_asks = order_book.get_best_n_asks(3);
+
+        assert_eq!(expected_asks, best_asks);
+
+        let empty_order_book = BTreeSetOrderBook::new();
+
+        let best_asks = empty_order_book.get_best_n_asks(10);
+        let expected_asks = vec![None; 10];
+
+        assert_eq!(best_asks, expected_asks);
+    }
 }
