@@ -11,6 +11,7 @@ use crate::order_book::error::OrderBookError;
 use crate::order_book::price_level::PriceLevelUpdate;
 
 use self::binance::Binance;
+use self::bitstamp::Bitstamp;
 
 const BINANCE: &str = "binance";
 const BITSTAMP: &str = "bitstamp";
@@ -48,9 +49,13 @@ impl Exchange {
             )
             .await?),
 
-            Exchange::Bitstamp => {
-                todo!()
-            }
+            Exchange::Bitstamp => Ok(Bitstamp::spawn_order_book_service(
+                pair,
+                order_book_depth,
+                order_book_stream_buffer,
+                price_level_tx,
+            )
+            .await?),
         }
     }
 }

@@ -1,6 +1,7 @@
 use std::{
     cmp::Ordering,
     collections::BTreeMap,
+    fmt::Debug,
     rc::Weak,
     sync::{Arc, RwLock},
 };
@@ -40,7 +41,7 @@ pub trait Order: Ord {
     fn get_exchange(&self) -> &Exchange;
 }
 
-pub trait OrderBook {
+pub trait OrderBook: Debug {
     fn update_bids(&mut self, bid: Bid);
     fn update_asks(&mut self, ask: Ask);
 }
@@ -75,6 +76,8 @@ where
 
         let mut handles = vec![];
 
+        dbg!("spawning service for exchanges");
+
         for exchange in self.exchanges.iter() {
             handles.extend(
                 exchange
@@ -87,6 +90,8 @@ where
                     .await?,
             )
         }
+
+        dbg!("spawning handler for orderbook");
 
         let order_book = self.order_book.clone();
         handles.push(tokio::spawn(async move {
@@ -106,5 +111,30 @@ where
         }));
 
         Ok(handles)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::order_book::btree_set::BTreeSetOrderBook;
+    use crate::{exchanges::Exchange, order_book::AggregatedOrderBook};
+    #[tokio::test]
+    async fn test_aggregated_order_book() {
+        let order_book = BTreeSetOrderBook::new();
+
+        let aggregated_order_book =
+            AggregatedOrderBook::new(["eth", "btc"], vec![Exchange::Bitstamp], order_book);
+
+        let join_handles = aggregated_order_book
+            .listen_to_bid_ask_spread(10, 1000, 100)
+            .await
+            .expect("TODO: handle this error");
+
+        for handle in join_handles {
+            handle
+                .await
+                .expect("TODO: handle this error")
+                .expect("handle this error");
+        }
     }
 }
