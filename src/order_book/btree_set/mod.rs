@@ -164,8 +164,6 @@ mod tests {
         dbg!(&actual_bids);
 
         assert_eq!(expected, actual_bids);
-
-        the update to the partial eq will break some things just a heads up, we will need to update the gt lt and eq tests to use cmp
     }
 
     #[test]

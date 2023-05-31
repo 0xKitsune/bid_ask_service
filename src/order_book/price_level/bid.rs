@@ -84,41 +84,35 @@ mod tests {
         order_book::{Ask, Bid},
     };
 
-
-
-
-    the update to the partial eq will break some things just a heads up, we will need to update the gt lt and eq tests to use cmp
-    since eq is a strict equality check now
-
     #[test]
     pub fn test_bid_greater() {
         //the price is greater but the quantity is the same
         let bid_0 = Bid::new(1.23, 1200.56, Exchange::Binance);
         let bid_1 = Bid::new(1.20, 1200.56, Exchange::Binance);
 
-        assert!(bid_0 > bid_1);
+        assert!(bid_0.cmp(&bid_1).is_gt());
 
         //the price is greater but the quantity is the same and the exchanges are different
         let bid_4 = Bid::new(1.24, 1200.56, Exchange::Bitstamp);
         let bid_5 = Bid::new(1.20, 1200.56, Exchange::Binance);
-        assert!(bid_4 > bid_5);
+        assert!(bid_4.cmp(&bid_5).is_gt());
 
         //the price is the same but the quantity is greater and the exchanges are different
         let bid_6 = Bid::new(1.20, 1300.56, Exchange::Binance);
         let bid_7 = Bid::new(1.20, 1200.56, Exchange::Bitstamp);
 
-        assert!(bid_6 > bid_7);
+        assert!(bid_6.cmp(&bid_7).is_gt());
 
         //the price and quantity are different
         let bid_8 = Bid::new(1.23, 1000.56, Exchange::Binance);
         let bid_9 = Bid::new(1.20, 1200.56, Exchange::Bitstamp);
-        assert!(bid_8 > bid_9);
+        assert!(bid_8.cmp(&bid_9).is_gt());
 
         //the price and quantity are the same but the exchange is different
         let bid_10 = Bid::new(1.20, 1000.56, Exchange::Binance);
         let bid_11 = Bid::new(1.20, 1000.56, Exchange::Bitstamp);
 
-        assert!(bid_10 > bid_11);
+        assert!(bid_10.cmp(&bid_11).is_gt());
     }
 
     #[test]
@@ -127,31 +121,31 @@ mod tests {
         let bid_0 = Bid::new(1.23, 1200.56, Exchange::Binance);
         let bid_1 = Bid::new(1.20, 1200.56, Exchange::Binance);
 
-        assert!(bid_1 < bid_0);
+        assert!(bid_1.cmp(&bid_0).is_lt());
 
         //the price is less but the quantity is the same and the exchanges are different
         let bid_4 = Bid::new(1.25, 1200.56, Exchange::Bitstamp);
         let bid_5 = Bid::new(1.20, 1200.56, Exchange::Binance);
 
-        assert!(bid_5 < bid_4);
+        assert!(bid_5.cmp(&bid_4).is_lt());
 
         //the price is the same but the quantity is less and the exchanges are different
         let bid_6 = Bid::new(1.20, 1300.56, Exchange::Bitstamp);
         let bid_7 = Bid::new(1.20, 1200.56, Exchange::Binance);
 
-        assert!(bid_7 < bid_6);
+        assert!(bid_7.cmp(&bid_6).is_lt());
 
         //the price and quantity are different
         let bid_8 = Bid::new(1.23, 1000.56, Exchange::Bitstamp);
         let bid_9 = Bid::new(1.20, 1200.56, Exchange::Binance);
 
-        assert!(bid_9 < bid_8);
+        assert!(bid_9.cmp(&bid_8).is_lt());
 
         //the price and quantity are the same but the exchange is different
         let bid_10 = Bid::new(1.20, 1000.56, Exchange::Binance);
         let bid_11 = Bid::new(1.20, 1000.56, Exchange::Bitstamp);
 
-        assert!(bid_11 < bid_10);
+        assert!(bid_11.cmp(&bid_10).is_lt());
     }
     #[test]
     pub fn test_bid_equal() {
@@ -165,6 +159,6 @@ mod tests {
         let bid_2 = Bid::new(1.20, 12309.56, Exchange::Binance);
         let bid_3 = Bid::new(1.20, 1200.56, Exchange::Binance);
 
-        assert!(bid_2 == bid_3);
+        assert!(bid_2.cmp(&bid_3).is_eq());
     }
 }

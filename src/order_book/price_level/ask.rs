@@ -82,10 +82,6 @@ impl Ord for Ask {
 #[cfg(test)]
 mod tests {
 
-
-    the update to the partial eq will break some things just a heads up, we will need to update the gt lt and eq tests to use cmp
-    since eq is a strict equality check now
-
     use crate::{
         exchanges::Exchange,
         order_book::{Ask, Bid},
@@ -97,37 +93,37 @@ mod tests {
         let ask_0 = Ask::new(1.23, 1200.56, Exchange::Binance);
         let ask_1 = Ask::new(1.20, 1200.56, Exchange::Bitstamp);
 
-        assert!(ask_1 < ask_0);
+        assert!(ask_1.cmp(&ask_0).is_lt());
 
         //the price is the same but the quantity is less
         let ask_2 = Ask::new(1.20, 1200.56, Exchange::Binance);
         let ask_3 = Ask::new(1.20, 1300.56, Exchange::Bitstamp);
 
-        assert!(ask_3.cmp(&ask_2).is_le());
+        assert!(ask_3.cmp(&ask_2).is_lt());
 
         //the price is less but the quantity is the same and the exchanges are different
         let ask_4 = Ask::new(1.25, 1200.56, Exchange::Binance);
         let ask_5 = Ask::new(1.20, 1200.56, Exchange::Bitstamp);
 
-        assert!(ask_5 < ask_4);
+        assert!(ask_5.cmp(&ask_4).is_lt());
 
         //the price is the same but the quantity is less and the exchanges are different
         let ask_6 = Ask::new(1.20, 1200.56, Exchange::Bitstamp);
         let ask_7 = Ask::new(1.20, 1300.56, Exchange::Binance);
 
-        assert!(ask_7 < ask_6);
+        assert!(ask_7.cmp(&ask_6).is_lt());
 
         //the price and quantity are different
         let ask_8 = Ask::new(1.23, 1500.56, Exchange::Binance);
         let ask_9 = Ask::new(1.20, 1200.56, Exchange::Bitstamp);
 
-        assert!(ask_9 < ask_8);
+        assert!(ask_9.cmp(&ask_8).is_lt());
 
         //the price and quantity are the same but the exchange is different
         let ask_10 = Ask::new(1.20, 1000.56, Exchange::Bitstamp);
         let ask_11 = Ask::new(1.20, 1000.56, Exchange::Binance);
 
-        assert!(ask_11 < ask_10);
+        assert!(ask_11.cmp(&ask_10).is_lt());
     }
 
     #[test]
@@ -136,31 +132,33 @@ mod tests {
         let ask_0 = Ask::new(1.23, 1200.56, Exchange::Binance);
         let ask_1 = Ask::new(1.20, 1200.56, Exchange::Bitstamp);
 
-        assert!(ask_0 > ask_1);
+        assert!(ask_0.cmp(&ask_1).is_gt());
 
         //the price is the same but the quantity is greater
         let ask_2 = Ask::new(1.20, 1200.56, Exchange::Binance);
         let ask_3 = Ask::new(1.20, 1300.56, Exchange::Bitstamp);
 
-        assert!(ask_2 > ask_3);
+        assert!(ask_2.cmp(&ask_3).is_gt());
 
         //the price is greater but the quantity is the same and the exchanges are different
         let ask_4 = Ask::new(1.25, 1200.56, Exchange::Binance);
-        let ask_5 = Ask::new(1.20, 1200.56, Exchange::Bitstamp);
+        let ask_5: Ask = Ask::new(1.20, 1200.56, Exchange::Bitstamp);
 
-        assert!(ask_4 > ask_5);
+        assert!(ask_4.cmp(&ask_5).is_gt());
 
         //the price is the same but the quantity is greater and the exchanges are different
         let ask_6 = Ask::new(1.20, 1200.56, Exchange::Bitstamp);
         let ask_7 = Ask::new(1.20, 1300.56, Exchange::Binance);
 
-        assert!(ask_6 > ask_7);
+        assert!(ask_6.cmp(&ask_7).is_gt());
 
         //the price and quantity are the same but the exchange is different
         let ask_8 = Ask::new(1.20, 1000.56, Exchange::Bitstamp);
         let ask_9 = Ask::new(1.20, 1000.56, Exchange::Binance);
-        assert!(ask_9 < ask_8);
+
+        assert!(ask_8.cmp(&ask_9).is_gt());
     }
+
     #[test]
     pub fn test_ask_equal() {
         //the price, quantity and the exchanges are the same
@@ -173,9 +171,6 @@ mod tests {
         let ask_2 = Ask::new(1.20, 234235.56, Exchange::Bitstamp);
         let ask_3 = Ask::new(1.20, 1200.56, Exchange::Bitstamp);
 
-        assert!(ask_2 == ask_3);
-
-
-        add a test that is strict equality as well
+        assert!(ask_2.cmp(&ask_3).is_eq());
     }
 }
