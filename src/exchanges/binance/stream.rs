@@ -117,7 +117,6 @@ pub async fn spawn_stream_handler(
         while let Some(message) = ws_stream_rx.recv().await {
             match message {
                 tungstenite::Message::Text(message) => {
-                    dbg!(&message);
                     let order_book_event = serde_json::from_str::<OrderBookEvent>(&message)?;
 
                     if order_book_event.event == DEPTH_UPDATE_EVENT {

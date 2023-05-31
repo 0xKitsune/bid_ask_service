@@ -140,7 +140,6 @@ pub async fn spawn_stream_handler(
                     let order_book_event = serde_json::from_str::<OrderBookEvent>(&message)?;
 
                     if order_book_event.event == DATA_EVENT {
-                        dbg!(&message);
                         let order_book_update = serde_json::from_str::<OrderBookUpdate>(&message)?;
 
                         let order_book_data = order_book_update.data;
