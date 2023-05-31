@@ -6,6 +6,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+use async_trait::async_trait;
 use ordered_float::{Float, OrderedFloat};
 use tokio::{sync::Mutex, task::JoinHandle};
 
@@ -41,16 +42,34 @@ pub trait Order: Ord {
     fn get_exchange(&self) -> &Exchange;
 }
 
+#[async_trait]
 pub trait OrderBook: Debug {
     fn update_bids(&mut self, bid: Bid, max_depth: usize);
     fn update_asks(&mut self, ask: Ask, max_depth: usize);
     fn get_best_bid(&self) -> Option<&Bid>;
-    fn get_best_n_bids(&self, n: usize) -> Vec<Option<Bid>>; //TODO: maybe change this to serialize best n bids
+    fn get_best_n_bids(&self, n: usize) -> Vec<Option<Bid>>;
     fn get_best_ask(&self) -> Option<&Ask>;
-    fn get_best_n_asks(&self, n: usize) -> Vec<Option<Ask>>; //TODO: maybe change this to serialize best n asks
-
-    //TODO: maybe add some functions that get best n bids and get best n asks?
+    fn get_best_n_asks(&self, n: usize) -> Vec<Option<Ask>>;
 }
+
+pub trait BuySide: Debug {
+    fn update_bids(&mut self, bid: Bid, max_depth: usize);
+    fn get_best_bid(&self) -> Option<&Bid>;
+    fn get_best_n_bids(&self, n: usize) -> Vec<Option<Bid>>;
+}
+
+pub trait SellSide: Debug {
+    fn update_asks(&mut self, ask: Ask, max_depth: usize);
+    fn get_best_ask(&self) -> Option<&Ask>;
+    fn get_best_n_asks(&self, n: usize) -> Vec<Option<Ask>>;
+}
+
+// pub struct AggregatedOrderBook<B: BuySide + Send, S: SellSide + Send> {
+//     pub pair: [String; 2],
+//     pub exchanges: Vec<Exchange>,
+//     pub bids: Arc<Mutex<B>>,
+//     pub asks: Arc<Mutex<B>>,
+// }
 
 pub struct AggregatedOrderBook<B: OrderBook + Send> {
     pub pair: [String; 2],
@@ -78,6 +97,8 @@ where
         order_book_stream_buffer: usize,
         price_level_buffer: usize,
     ) -> Result<Vec<JoinHandle<Result<(), OrderBookError>>>, OrderBookError> {
+        //TODO: add some error for when the best order depth is greater than the max order book depth
+
         let (price_level_tx, mut price_level_rx) =
             tokio::sync::mpsc::channel::<PriceLevelUpdate>(price_level_buffer);
 
@@ -104,8 +125,12 @@ where
         handles.push(tokio::spawn(async move {
             let mut best_bid = Bid::default();
             let mut best_ask = Ask::default();
+
             let mut best_n_bids: Vec<Option<Bid>> = vec![None; best_n_orders];
+            let mut worst_bid = Bid::default();
+
             let mut best_n_asks: Vec<Option<Ask>> = vec![None; best_n_orders];
+            let mut worst_ask = Ask::default();
 
             while let Some(price_level_update) = price_level_rx.recv().await {
                 //TODO: FIXME: you can add a var here to check if the best ask is succeeded and then update the best ask,
@@ -116,13 +141,25 @@ where
 
                 //TODO: can we make this concurrent so that these things happen at the same time?
                 for ask in price_level_update.asks {
+                    //ie its less than the worst ask,
+                    //if the price is less, its better, if the price is the same and the quantity is more, its better, if the price and the quantity is the same,
+                    if ask.cmp(&worst_ask).is_le() {
+                        //If it is less than or equal we need to update the best asks, equal because this signifies that the quantity on the worst ask out of the n best asks needs to be updated
+                        update_best_asks = true;
+                    }
+
                     order_book
                         .lock()
                         .await
                         .update_asks(ask, max_order_book_depth);
                 }
+
                 //TODO: can we make this concurrent so that these things happen at the same time?
                 for bid in price_level_update.bids {
+                    if bid.cmp(&worst_bid).is_ge() {
+                        update_best_bids = true;
+                    }
+
                     order_book
                         .lock()
                         .await
@@ -133,14 +170,16 @@ where
                 if update_best_bids {
                     best_n_bids = order_book.lock().await.get_best_n_bids(best_n_orders);
                     if let Some(bid) = &best_n_bids[0] {
-                        best_bid = bid.clone() //TODO: see if you need to clone here
+                        best_bid = bid.clone(); //TODO: see if you need to clone here
+                        best_n_bids = order_book.lock().await.get_best_n_bids(best_n_orders);
                     }
                 }
 
                 if update_best_asks {
                     best_n_asks = order_book.lock().await.get_best_n_asks(best_n_orders);
                     if let Some(ask) = &best_n_asks[0] {
-                        best_ask = ask.clone() //TODO: see if you need to clone here
+                        best_ask = ask.clone(); //TODO: see if you need to clone here
+                        best_n_asks = order_book.lock().await.get_best_n_asks(best_n_orders);
                     }
                 }
 
