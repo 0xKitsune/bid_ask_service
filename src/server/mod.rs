@@ -20,6 +20,8 @@ use tonic::transport::server::Router;
 use tonic::transport::Server;
 use tonic::{Request, Response, Status, Streaming};
 
+use crate::error::BidAskServiceError;
+
 use self::error::ServerError;
 
 pub mod orderbook_service {
@@ -30,10 +32,13 @@ pub mod orderbook_service {
 pub fn spawn_order_book_service(
     router: Router,
     socket_address: SocketAddr,
-) -> JoinHandle<Result<(), ServerError>> {
+) -> JoinHandle<Result<(), BidAskServiceError>> {
     let handle = tokio::spawn(async move {
-        router.serve(socket_address).await?;
-        Ok::<_, ServerError>(())
+        router
+            .serve(socket_address)
+            .await
+            .map_err(ServerError::TransportError)?;
+        Ok::<_, BidAskServiceError>(())
     });
 
     handle

@@ -1,6 +1,9 @@
 pub mod error;
 mod stream;
-use crate::exchanges::bitstamp::stream::{spawn_order_book_stream, spawn_stream_handler};
+use crate::{
+    error::BidAskServiceError,
+    exchanges::bitstamp::stream::{spawn_order_book_stream, spawn_stream_handler},
+};
 
 use async_trait::async_trait;
 use tokio::{sync::mpsc::Sender, task::JoinHandle};
@@ -24,7 +27,7 @@ impl OrderBookService for Bitstamp {
         _order_book_depth: usize,
         order_book_stream_buffer: usize,
         price_level_tx: Sender<PriceLevelUpdate>,
-    ) -> Vec<JoinHandle<Result<(), OrderBookError>>> {
+    ) -> Vec<JoinHandle<Result<(), BidAskServiceError>>> {
         let pair = pair.join("");
         let stream_pair = pair.to_lowercase();
         let snapshot_pair = stream_pair.clone();
@@ -46,7 +49,10 @@ mod tests {
         Arc,
     };
 
-    use crate::{exchanges::bitstamp::Bitstamp, order_book::price_level::PriceLevelUpdate};
+    use crate::{
+        error::BidAskServiceError, exchanges::bitstamp::Bitstamp,
+        order_book::price_level::PriceLevelUpdate,
+    };
     use crate::{exchanges::OrderBookService, order_book::error::OrderBookError};
     use futures::FutureExt;
 
@@ -69,7 +75,7 @@ mod tests {
                 }
             }
 
-            Ok::<(), OrderBookError>(())
+            Ok::<(), BidAskServiceError>(())
         });
 
         join_handles.push(price_level_update_handle);

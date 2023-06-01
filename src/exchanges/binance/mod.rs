@@ -1,8 +1,8 @@
 pub mod error;
 mod stream;
 
-use crate::order_book::error::OrderBookError;
 use crate::order_book::price_level::PriceLevelUpdate;
+use crate::{error::BidAskServiceError, order_book::error::OrderBookError};
 
 use async_trait::async_trait;
 
@@ -27,7 +27,7 @@ impl OrderBookService for Binance {
         order_book_depth: usize,
         order_book_stream_buffer: usize,
         price_level_tx: Sender<PriceLevelUpdate>,
-    ) -> Vec<JoinHandle<Result<(), OrderBookError>>> {
+    ) -> Vec<JoinHandle<Result<(), BidAskServiceError>>> {
         let pair = pair.join("");
         //TODO: add comment to explain why we do this
         let stream_pair = pair.to_lowercase();
@@ -55,6 +55,7 @@ mod tests {
     };
 
     use crate::{
+        error::BidAskServiceError,
         exchanges::{binance::Binance, OrderBookService},
         order_book::{error::OrderBookError, price_level::PriceLevelUpdate},
     };
@@ -80,7 +81,7 @@ mod tests {
                 }
             }
 
-            Ok::<(), OrderBookError>(())
+            Ok::<(), BidAskServiceError>(())
         });
 
         join_handles.push(price_level_update_handle);

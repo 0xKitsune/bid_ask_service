@@ -8,6 +8,7 @@ use async_trait::async_trait;
 use tokio::sync::mpsc::Sender;
 use tokio::task::JoinHandle;
 
+use crate::error::BidAskServiceError;
 use crate::order_book::error::OrderBookError;
 use crate::order_book::price_level::PriceLevelUpdate;
 
@@ -24,7 +25,7 @@ pub trait OrderBookService {
         order_book_depth: usize,
         order_book_stream_buffer: usize,
         price_level_tx: Sender<PriceLevelUpdate>,
-    ) -> Vec<JoinHandle<Result<(), OrderBookError>>>;
+    ) -> Vec<JoinHandle<Result<(), BidAskServiceError>>>;
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
@@ -41,7 +42,7 @@ impl Exchange {
         order_book_depth: usize,
         order_book_stream_buffer: usize,
         price_level_tx: Sender<PriceLevelUpdate>,
-    ) -> Vec<JoinHandle<Result<(), OrderBookError>>> {
+    ) -> Vec<JoinHandle<Result<(), BidAskServiceError>>> {
         match self {
             Exchange::Binance => Binance::spawn_order_book_service(
                 pair,

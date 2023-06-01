@@ -9,6 +9,7 @@ use tokio::{
 };
 
 use crate::{
+    error::BidAskServiceError,
     exchanges::Exchange,
     server::orderbook_service::{Level, Summary},
 };
@@ -90,7 +91,7 @@ where
         best_n_orders: usize,
 
         summary_tx: Sender<Summary>,
-    ) -> Vec<JoinHandle<Result<(), OrderBookError>>> {
+    ) -> Vec<JoinHandle<Result<(), BidAskServiceError>>> {
         //TODO: add some error for when the best order depth is greater than the max order book depth
 
         let (price_level_tx, price_level_rx) =
@@ -124,7 +125,7 @@ where
         max_order_book_depth: usize,
         best_n_orders: usize,
         summary_tx: Sender<Summary>,
-    ) -> JoinHandle<Result<(), OrderBookError>> {
+    ) -> JoinHandle<Result<(), BidAskServiceError>> {
         let bids = self.bids.clone();
         let asks = self.asks.clone();
         tokio::spawn(async move {
@@ -243,10 +244,12 @@ where
                     asks: best_n_asks.clone(),
                 };
 
-                summary_tx.send(summary)?;
+                summary_tx
+                    .send(summary)
+                    .map_err(OrderBookError::SummarySendError)?;
             }
 
-            Ok::<(), OrderBookError>(())
+            Ok::<(), BidAskServiceError>(())
         })
     }
 }

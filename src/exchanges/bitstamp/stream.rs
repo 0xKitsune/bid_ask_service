@@ -1,4 +1,5 @@
 use crate::{
+    error::BidAskServiceError,
     exchanges::{exchange_utils, Exchange},
     order_book::price_level::{ask::Ask, bid::Bid, PriceLevelUpdate},
 };
@@ -61,7 +62,10 @@ impl SubscriptionData {
 pub fn spawn_order_book_stream(
     pair: String,
     order_book_stream_buffer: usize,
-) -> (Receiver<Message>, JoinHandle<Result<(), OrderBookError>>) {
+) -> (
+    Receiver<Message>,
+    JoinHandle<Result<(), BidAskServiceError>>,
+) {
     let (ws_stream_tx, ws_stream_rx) =
         tokio::sync::mpsc::channel::<Message>(order_book_stream_buffer);
 
@@ -69,16 +73,18 @@ pub fn spawn_order_book_stream(
     let stream_handle = tokio::spawn(async move {
         let ws_stream_tx: Sender<Message> = ws_stream_tx.clone();
         loop {
-            let (mut order_book_stream, _) =
-                tokio_tungstenite::connect_async(WS_BASE_ENDPOINT).await?;
+            let (mut order_book_stream, _) = tokio_tungstenite::connect_async(WS_BASE_ENDPOINT)
+                .await
+                .map_err(BitstampError::TungsteniteError)?;
 
-            let subscription_message = serde_json::to_string(&SubscribeMessage::new(&format!(
-                "{DIFF_ORDER_BOOK}_{pair}"
-            )))?;
+            let subscription_message =
+                serde_json::to_string(&SubscribeMessage::new(&format!("{DIFF_ORDER_BOOK}_{pair}")))
+                    .map_err(BitstampError::SerdeJsonError)?;
 
             order_book_stream
                 .send(tungstenite::Message::Text(subscription_message))
-                .await?;
+                .await
+                .map_err(BitstampError::TungsteniteError)?;
 
             log::info!("Ws connection established");
 
@@ -124,7 +130,7 @@ pub fn spawn_stream_handler(
     pair: String,
     mut ws_stream_rx: Receiver<Message>,
     price_level_tx: Sender<PriceLevelUpdate>,
-) -> JoinHandle<Result<(), OrderBookError>> {
+) -> JoinHandle<Result<(), BidAskServiceError>> {
     let order_book_update_handle = tokio::spawn(async move {
         //TODO: update heuristic to check if orders are gtg
         let mut last_microtimestamp = 0;
@@ -132,10 +138,12 @@ pub fn spawn_stream_handler(
         while let Some(message) = ws_stream_rx.recv().await {
             match message {
                 tungstenite::Message::Text(message) => {
-                    let order_book_event = serde_json::from_str::<OrderBookEvent>(&message)?;
+                    let order_book_event = serde_json::from_str::<OrderBookEvent>(&message)
+                        .map_err(BitstampError::SerdeJsonError)?;
 
                     if order_book_event.event == DATA_EVENT {
-                        let order_book_update = serde_json::from_str::<OrderBookUpdate>(&message)?;
+                        let order_book_update = serde_json::from_str::<OrderBookUpdate>(&message)
+                            .map_err(BitstampError::SerdeJsonError)?;
 
                         let order_book_data = order_book_update.data;
 
@@ -156,7 +164,8 @@ pub fn spawn_stream_handler(
 
                             price_level_tx
                                 .send(PriceLevelUpdate::new(bids, asks))
-                                .await?;
+                                .await
+                                .map_err(BitstampError::PriceLevelUpdateSendError)?;
 
                             last_microtimestamp = order_book_data.microtimestamp;
                         }
@@ -180,7 +189,8 @@ pub fn spawn_stream_handler(
 
                         price_level_tx
                             .send(PriceLevelUpdate::new(bids, asks))
-                            .await?;
+                            .await
+                            .map_err(BitstampError::PriceLevelUpdateSendError)?;
 
                         last_microtimestamp = snapshot.microtimestamp;
                     }
@@ -190,7 +200,7 @@ pub fn spawn_stream_handler(
             }
         }
 
-        Ok::<(), OrderBookError>(())
+        Ok::<(), BidAskServiceError>(())
     });
 
     order_book_update_handle
@@ -255,13 +265,13 @@ pub struct OrderBookUpdateData {
     pub asks: Vec<[f64; 2]>,
 }
 
-async fn get_order_book_snapshot(pair: &str) -> Result<OrderBookSnapshot, OrderBookError> {
+async fn get_order_book_snapshot(pair: &str) -> Result<OrderBookSnapshot, BitstampError> {
     let snapshot_endpoint = ORDER_BOOK_SNAPSHOT_BASE_ENDPOINT.to_owned() + pair;
     let snapshot_response = reqwest::get(snapshot_endpoint).await?;
     if snapshot_response.status().is_success() {
         Ok(snapshot_response.json::<OrderBookSnapshot>().await?)
     } else {
-        Err(OrderBookError::HTTPError(String::from_utf8(
+        Err(BitstampError::HTTPError(String::from_utf8(
             snapshot_response.bytes().await?.to_vec(),
         )?))
     }
@@ -274,8 +284,8 @@ mod tests {
         Arc,
     };
 
-    use crate::exchanges::bitstamp::stream::spawn_order_book_stream;
     use crate::order_book::error::OrderBookError;
+    use crate::{error::BidAskServiceError, exchanges::bitstamp::stream::spawn_order_book_stream};
     use futures::FutureExt;
     #[tokio::test]
 
@@ -301,7 +311,7 @@ mod tests {
                 }
             }
 
-            Ok::<(), OrderBookError>(())
+            Ok::<(), BidAskServiceError>(())
         });
 
         join_handles.push(order_book_stream_handle);

@@ -1,11 +1,12 @@
 use serde_derive::Deserialize;
 use tokio::{sync::mpsc::Receiver, task::JoinHandle};
 
-use crate::exchanges::binance::error::BinanceError;
+use crate::exchanges::error::ExchangeError;
 use crate::order_book::error::OrderBookError;
 use crate::order_book::price_level::ask::Ask;
 use crate::order_book::price_level::bid::Bid;
 use crate::order_book::price_level::PriceLevelUpdate;
+use crate::{error::BidAskServiceError, exchanges::binance::error::BinanceError};
 
 use crate::exchanges::Exchange;
 
@@ -41,7 +42,10 @@ const GET_ORDER_BOOK_SNAPSHOT: Vec<u8> = vec![];
 pub fn spawn_order_book_stream(
     pair: String,
     order_book_stream_buffer: usize,
-) -> (Receiver<Message>, JoinHandle<Result<(), OrderBookError>>) {
+) -> (
+    Receiver<Message>,
+    JoinHandle<Result<(), BidAskServiceError>>,
+) {
     let (ws_stream_tx, ws_stream_rx) =
         tokio::sync::mpsc::channel::<Message>(order_book_stream_buffer);
 
@@ -52,8 +56,9 @@ pub fn spawn_order_book_stream(
             //Establish an infinite loop to handle a ws stream with reconnects
             let order_book_endpoint = WS_BASE_ENDPOINT.to_owned() + &pair + "@depth"; //TODO: see if we can specify the depth to listen to
 
-            let (mut order_book_stream, _) =
-                tokio_tungstenite::connect_async(order_book_endpoint).await?;
+            let (mut order_book_stream, _) = tokio_tungstenite::connect_async(order_book_endpoint)
+                .await
+                .map_err(BinanceError::TungsteniteError)?;
             log::info!("Ws connection established");
 
             ws_stream_tx
@@ -97,17 +102,19 @@ pub fn spawn_stream_handler(
     order_book_depth: usize,
     mut ws_stream_rx: Receiver<Message>,
     price_level_tx: Sender<PriceLevelUpdate>,
-) -> JoinHandle<Result<(), OrderBookError>> {
+) -> JoinHandle<Result<(), BidAskServiceError>> {
     let order_book_update_handle = tokio::spawn(async move {
         let mut last_update_id = 0;
 
         while let Some(message) = ws_stream_rx.recv().await {
             match message {
                 tungstenite::Message::Text(message) => {
-                    let order_book_event = serde_json::from_str::<OrderBookEvent>(&message)?;
+                    let order_book_event = serde_json::from_str::<OrderBookEvent>(&message)
+                        .map_err(BinanceError::SerdeJsonError)?;
 
                     if order_book_event.event == DEPTH_UPDATE_EVENT {
-                        let order_book_update = serde_json::from_str::<OrderBookUpdate>(&message)?;
+                        let order_book_update = serde_json::from_str::<OrderBookUpdate>(&message)
+                            .map_err(BinanceError::SerdeJsonError)?;
 
                         if order_book_update.final_updated_id <= last_update_id {
                             //TODO: potentially add some error logging here
@@ -132,7 +139,8 @@ pub fn spawn_stream_handler(
 
                                 price_level_tx
                                     .send(PriceLevelUpdate::new(bids, asks))
-                                    .await?;
+                                    .await
+                                    .map_err(BinanceError::PriceLevelUpdateSendError)?;
                             } else {
                                 return Err(BinanceError::InvalidUpdateId.into());
                             }
@@ -160,7 +168,8 @@ pub fn spawn_stream_handler(
 
                         price_level_tx
                             .send(PriceLevelUpdate::new(bids, asks))
-                            .await?;
+                            .await
+                            .map_err(BinanceError::PriceLevelUpdateSendError)?;
 
                         last_update_id = snapshot.last_update_id;
                     }
@@ -170,7 +179,7 @@ pub fn spawn_stream_handler(
             }
         }
 
-        Ok::<(), OrderBookError>(())
+        Ok::<(), BidAskServiceError>(())
     });
 
     order_book_update_handle
@@ -234,7 +243,7 @@ pub struct OrderBookEvent {
 async fn get_order_book_snapshot(
     pair: &str,
     order_book_depth: usize,
-) -> Result<OrderBookSnapshot, OrderBookError> {
+) -> Result<OrderBookSnapshot, BinanceError> {
     let snapshot_endpoint = ORDER_BOOK_SNAPSHOT_BASE_ENDPOINT.to_owned()
         + pair
         + "&limit="
@@ -246,7 +255,7 @@ async fn get_order_book_snapshot(
     if snapshot_response.status().is_success() {
         Ok(snapshot_response.json::<OrderBookSnapshot>().await?)
     } else {
-        Err(OrderBookError::HTTPError(String::from_utf8(
+        Err(BinanceError::HTTPError(String::from_utf8(
             snapshot_response.bytes().await?.to_vec(),
         )?))
     }
@@ -259,7 +268,7 @@ mod tests {
         Arc,
     };
 
-    use crate::exchanges::binance::spawn_order_book_stream;
+    use crate::{error::BidAskServiceError, exchanges::binance::spawn_order_book_stream};
 
     use crate::order_book::error::OrderBookError;
     use futures::FutureExt;
@@ -289,7 +298,7 @@ mod tests {
                 }
             }
 
-            Ok::<(), OrderBookError>(())
+            Ok::<(), BidAskServiceError>(())
         });
 
         join_handles.push(order_book_stream_handle);
