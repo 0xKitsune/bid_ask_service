@@ -4,7 +4,7 @@ mod stream;
 use async_trait::async_trait;
 use tokio::{sync::mpsc::Sender, task::JoinHandle};
 
-use crate::order_book::{error::OrderBookError, PriceLevelUpdate};
+use crate::order_book::{error::OrderBookError, price_level::PriceLevelUpdate};
 
 use self::stream::{spawn_order_book_stream, spawn_stream_handler};
 
@@ -43,14 +43,14 @@ impl OrderBookService for Bitstamp {
 #[cfg(test)]
 mod tests {
     use std::sync::{
-        atomic::{AtomicU32, AtomicU8, Ordering},
+        atomic::{AtomicU32, Ordering},
         Arc,
     };
 
-    use crate::exchanges::bitstamp::Bitstamp;
+    use crate::{exchanges::bitstamp::Bitstamp, order_book::price_level::PriceLevelUpdate};
     use crate::{
-        exchanges::{binance::Binance, OrderBookService},
-        order_book::{error::OrderBookError, PriceLevel, PriceLevelUpdate},
+        exchanges::{OrderBookService},
+        order_book::error::OrderBookError,
     };
     use futures::FutureExt;
 
@@ -75,7 +75,7 @@ mod tests {
                 }
             }
 
-            return Ok::<(), OrderBookError>(());
+            Ok::<(), OrderBookError>(())
         });
 
         join_handles.push(price_level_update_handle);

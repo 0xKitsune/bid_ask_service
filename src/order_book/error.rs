@@ -1,10 +1,9 @@
-use crate::{
-    exchanges::{
-        binance::error::{self, BinanceError},
-        bitstamp::error::BitstampError,
-    },
-    order_book::PriceLevelUpdate,
+use crate::exchanges::{
+    binance::error::{BinanceError},
+    bitstamp::error::BitstampError,
 };
+
+use super::PriceLevelUpdate;
 
 #[derive(thiserror::Error, Debug)]
 pub enum OrderBookError {
