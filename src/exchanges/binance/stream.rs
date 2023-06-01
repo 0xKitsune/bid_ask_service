@@ -1,26 +1,17 @@
 use serde_derive::Deserialize;
 use tokio::{sync::mpsc::Receiver, task::JoinHandle};
 
-
 use crate::exchanges::binance::error::BinanceError;
 use crate::order_book::error::OrderBookError;
 use crate::order_book::price_level::ask::Ask;
 use crate::order_book::price_level::bid::Bid;
-use crate::order_book::price_level::{PriceLevelUpdate};
+use crate::order_book::price_level::PriceLevelUpdate;
 
-
-
-
-
-use crate::exchanges::{Exchange};
-
+use crate::exchanges::Exchange;
 
 use futures::{SinkExt, StreamExt};
 
-
-use tokio::{
-    sync::mpsc::{Sender},
-};
+use tokio::sync::mpsc::Sender;
 
 use crate::exchanges::exchange_utils;
 
@@ -47,10 +38,10 @@ const GET_ORDER_BOOK_SNAPSHOT: Vec<u8> = vec![];
 // The websocket server will send a ping frame every 3 minutes. If the websocket server does not receive a pong frame back from the connection within a 10 minute period, the connection will be disconnected. Unsolicited pong frames are allowed.
 // The base endpoint wss://data-stream.binance.com can be subscribed to receive market data messages. Users data stream is NOT available from this URL.
 
-pub async fn spawn_order_book_stream(
+pub fn spawn_order_book_stream(
     pair: String,
     order_book_stream_buffer: usize,
-) -> Result<(Receiver<Message>, JoinHandle<Result<(), OrderBookError>>), OrderBookError> {
+) -> (Receiver<Message>, JoinHandle<Result<(), OrderBookError>>) {
     let (ws_stream_tx, ws_stream_rx) =
         tokio::sync::mpsc::channel::<Message>(order_book_stream_buffer);
 
@@ -98,15 +89,15 @@ pub async fn spawn_order_book_stream(
         }
     });
 
-    Ok((ws_stream_rx, stream_handle))
+    (ws_stream_rx, stream_handle)
 }
 
-pub async fn spawn_stream_handler(
+pub fn spawn_stream_handler(
     pair: String,
     order_book_depth: usize,
     mut ws_stream_rx: Receiver<Message>,
     price_level_tx: Sender<PriceLevelUpdate>,
-) -> Result<JoinHandle<Result<(), OrderBookError>>, OrderBookError> {
+) -> JoinHandle<Result<(), OrderBookError>> {
     let order_book_update_handle = tokio::spawn(async move {
         let mut last_update_id = 0;
 
@@ -182,7 +173,7 @@ pub async fn spawn_stream_handler(
         Ok::<(), OrderBookError>(())
     });
 
-    Ok(order_book_update_handle)
+    order_book_update_handle
 }
 
 #[derive(Debug, Deserialize)]
@@ -269,12 +260,9 @@ mod tests {
     };
 
     use crate::exchanges::binance::spawn_order_book_stream;
-    
-    use crate::{
-        order_book::error::OrderBookError,
-    };
+
+    use crate::order_book::error::OrderBookError;
     use futures::FutureExt;
-    
 
     //TODO: add a test for order book snapshot
 
@@ -290,9 +278,7 @@ mod tests {
         let mut join_handles = vec![];
 
         let (mut order_book_update_rx, order_book_stream_handle) =
-            spawn_order_book_stream("ethbtc".to_owned(), 500)
-                .await
-                .expect("TODO: handle this error");
+            spawn_order_book_stream("ethbtc".to_owned(), 500);
 
         let order_book_update_handle = tokio::spawn(async move {
             while let Some(_) = order_book_update_rx.recv().await {

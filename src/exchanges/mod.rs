@@ -19,12 +19,12 @@ const BITSTAMP: &str = "bitstamp";
 
 #[async_trait]
 pub trait OrderBookService {
-    async fn spawn_order_book_service(
+    fn spawn_order_book_service(
         pair: [&str; 2],
         order_book_depth: usize,
         order_book_stream_buffer: usize,
         price_level_tx: Sender<PriceLevelUpdate>,
-    ) -> Result<Vec<JoinHandle<Result<(), OrderBookError>>>, OrderBookError>;
+    ) -> Vec<JoinHandle<Result<(), OrderBookError>>>;
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
@@ -35,29 +35,26 @@ pub enum Exchange {
 }
 
 impl Exchange {
-    pub async fn spawn_order_book_service(
+    pub fn spawn_order_book_service(
         &self,
         pair: [&str; 2],
         order_book_depth: usize,
         order_book_stream_buffer: usize,
         price_level_tx: Sender<PriceLevelUpdate>,
-    ) -> Result<Vec<JoinHandle<Result<(), OrderBookError>>>, OrderBookError> {
+    ) -> Vec<JoinHandle<Result<(), OrderBookError>>> {
         match self {
-            Exchange::Binance => Ok(Binance::spawn_order_book_service(
+            Exchange::Binance => Binance::spawn_order_book_service(
                 pair,
                 order_book_depth,
                 order_book_stream_buffer,
                 price_level_tx,
-            )
-            .await?),
-
-            Exchange::Bitstamp => Ok(Bitstamp::spawn_order_book_service(
+            ),
+            Exchange::Bitstamp => Bitstamp::spawn_order_book_service(
                 pair,
                 order_book_depth,
                 order_book_stream_buffer,
                 price_level_tx,
-            )
-            .await?),
+            ),
         }
     }
 }

@@ -20,6 +20,8 @@ use tonic::transport::server::Router;
 use tonic::transport::Server;
 use tonic::{Request, Response, Status, Streaming};
 
+use self::error::ServerError;
+
 pub mod orderbook_service {
 
     tonic::include_proto!("orderbookservice");
@@ -28,10 +30,10 @@ pub mod orderbook_service {
 pub fn spawn_order_book_aggregator_service(
     router: Router,
     socket_address: SocketAddr,
-) -> JoinHandle<Result<(), tonic::transport::Error>> {
+) -> JoinHandle<Result<(), ServerError>> {
     let handle = tokio::spawn(async move {
         router.serve(socket_address).await?;
-        Ok::<_, tonic::transport::Error>(())
+        Ok::<_, ServerError>(())
     });
 
     handle

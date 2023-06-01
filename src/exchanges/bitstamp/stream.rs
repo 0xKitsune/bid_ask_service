@@ -1,6 +1,3 @@
-
-
-
 use crate::{
     exchanges::{exchange_utils, Exchange},
     order_book::price_level::{ask::Ask, bid::Bid, PriceLevelUpdate},
@@ -16,8 +13,6 @@ use tokio::{
 use tungstenite::Message;
 
 use crate::{exchanges::bitstamp::error::BitstampError, order_book::error::OrderBookError};
-
-
 
 const WS_BASE_ENDPOINT: &str = "wss://ws.bitstamp.net/";
 const SUBSCRIBE_EVENT: &str = "bts:subscribe";
@@ -63,10 +58,10 @@ impl SubscriptionData {
 
 //TODO: we can prob couple this with the snapshot as well just like binance and follow almost the exact same order to get a buffered stream with reconnects
 
-pub async fn spawn_order_book_stream(
+pub fn spawn_order_book_stream(
     pair: String,
     order_book_stream_buffer: usize,
-) -> Result<(Receiver<Message>, JoinHandle<Result<(), OrderBookError>>), OrderBookError> {
+) -> (Receiver<Message>, JoinHandle<Result<(), OrderBookError>>) {
     let (ws_stream_tx, ws_stream_rx) =
         tokio::sync::mpsc::channel::<Message>(order_book_stream_buffer);
 
@@ -122,14 +117,14 @@ pub async fn spawn_order_book_stream(
         }
     });
 
-    Ok((ws_stream_rx, stream_handle))
+    (ws_stream_rx, stream_handle)
 }
 
-pub async fn spawn_stream_handler(
+pub fn spawn_stream_handler(
     pair: String,
     mut ws_stream_rx: Receiver<Message>,
     price_level_tx: Sender<PriceLevelUpdate>,
-) -> Result<JoinHandle<Result<(), OrderBookError>>, OrderBookError> {
+) -> JoinHandle<Result<(), OrderBookError>> {
     let order_book_update_handle = tokio::spawn(async move {
         //TODO: update heuristic to check if orders are gtg
         let mut last_microtimestamp = 0;
@@ -198,7 +193,7 @@ pub async fn spawn_stream_handler(
         Ok::<(), OrderBookError>(())
     });
 
-    Ok(order_book_update_handle)
+    order_book_update_handle
 }
 
 #[derive(Debug, Deserialize)]
@@ -280,9 +275,7 @@ mod tests {
     };
 
     use crate::exchanges::bitstamp::stream::spawn_order_book_stream;
-    use crate::{
-        order_book::error::OrderBookError,
-    };
+    use crate::order_book::error::OrderBookError;
     use futures::FutureExt;
     #[tokio::test]
 
@@ -297,9 +290,7 @@ mod tests {
         let mut join_handles = vec![];
 
         let (mut order_book_update_rx, order_book_stream_handle) =
-            spawn_order_book_stream("ethbtc".to_owned(), 500)
-                .await
-                .expect("TODO: handle this error");
+            spawn_order_book_stream("ethbtc".to_owned(), 500);
 
         let order_book_update_handle = tokio::spawn(async move {
             while let Some(_) = order_book_update_rx.recv().await {

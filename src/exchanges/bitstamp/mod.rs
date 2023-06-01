@@ -1,12 +1,11 @@
 pub mod error;
 mod stream;
+use crate::exchanges::bitstamp::stream::{spawn_order_book_stream, spawn_stream_handler};
 
 use async_trait::async_trait;
 use tokio::{sync::mpsc::Sender, task::JoinHandle};
 
 use crate::order_book::{error::OrderBookError, price_level::PriceLevelUpdate};
-
-use self::stream::{spawn_order_book_stream, spawn_stream_handler};
 
 use super::OrderBookService;
 
@@ -20,23 +19,23 @@ impl Bitstamp {
 
 #[async_trait]
 impl OrderBookService for Bitstamp {
-    async fn spawn_order_book_service(
+    fn spawn_order_book_service(
         pair: [&str; 2],
         _order_book_depth: usize,
         order_book_stream_buffer: usize,
         price_level_tx: Sender<PriceLevelUpdate>,
-    ) -> Result<Vec<JoinHandle<Result<(), OrderBookError>>>, OrderBookError> {
+    ) -> Vec<JoinHandle<Result<(), OrderBookError>>> {
         let pair = pair.join("");
         let stream_pair = pair.to_lowercase();
         let snapshot_pair = stream_pair.clone();
 
         let (ws_stream_rx, stream_handle) =
-            spawn_order_book_stream(stream_pair, order_book_stream_buffer).await?;
+            spawn_order_book_stream(stream_pair, order_book_stream_buffer);
 
         let order_book_update_handle =
-            spawn_stream_handler(snapshot_pair, ws_stream_rx, price_level_tx).await?;
+            spawn_stream_handler(snapshot_pair, ws_stream_rx, price_level_tx);
 
-        Ok(vec![stream_handle, order_book_update_handle])
+        vec![stream_handle, order_book_update_handle]
     }
 }
 
@@ -48,10 +47,7 @@ mod tests {
     };
 
     use crate::{exchanges::bitstamp::Bitstamp, order_book::price_level::PriceLevelUpdate};
-    use crate::{
-        exchanges::{OrderBookService},
-        order_book::error::OrderBookError,
-    };
+    use crate::{exchanges::OrderBookService, order_book::error::OrderBookError};
     use futures::FutureExt;
 
     #[tokio::test]
@@ -62,9 +58,7 @@ mod tests {
         let target_counter = 5000;
 
         let (tx, mut rx) = tokio::sync::mpsc::channel::<PriceLevelUpdate>(500);
-        let mut join_handles = Bitstamp::spawn_order_book_service(["eth", "btc"], 1000, 500, tx)
-            .await
-            .expect("TODO: handle this error");
+        let mut join_handles = Bitstamp::spawn_order_book_service(["eth", "btc"], 1000, 500, tx);
 
         let price_level_update_handle = tokio::spawn(async move {
             while let Some(_) = rx.recv().await {

@@ -82,14 +82,14 @@ where
         }
     }
 
-    pub async fn spawn_bid_ask_service(
+    pub fn spawn_bid_ask_service(
         &self,
         best_n_orders: usize,
         max_order_book_depth: usize,
         order_book_stream_buffer: usize,
         price_level_buffer: usize,
         summary_tx: Sender<Summary>,
-    ) -> Result<Vec<JoinHandle<Result<(), OrderBookError>>>, OrderBookError> {
+    ) -> Vec<JoinHandle<Result<(), OrderBookError>>> {
         //TODO: add some error for when the best order depth is greater than the max order book depth
 
         let (price_level_tx, price_level_rx) =
@@ -97,16 +97,12 @@ where
         let mut handles = vec![];
 
         for exchange in self.exchanges.iter() {
-            handles.extend(
-                exchange
-                    .spawn_order_book_service(
-                        [&self.pair[0], &self.pair[1]],
-                        max_order_book_depth,
-                        order_book_stream_buffer,
-                        price_level_tx.clone(),
-                    )
-                    .await?,
-            )
+            handles.extend(exchange.spawn_order_book_service(
+                [&self.pair[0], &self.pair[1]],
+                max_order_book_depth,
+                order_book_stream_buffer,
+                price_level_tx.clone(),
+            ))
         }
 
         //Refactor this into one function
@@ -117,7 +113,7 @@ where
             summary_tx,
         ));
 
-        Ok(handles)
+        handles
     }
 
     //TODO: will need to update this error so that all futures can be joined
