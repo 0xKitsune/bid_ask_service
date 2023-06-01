@@ -3,7 +3,12 @@ use std::error::Error;
 use kbas::{
     exchanges::Exchange,
     order_book::{rbtree::RBTreeOrderBook, AggregatedOrderBook},
+    server::{
+        self, orderbook_service::orderbook_aggregator_server::OrderbookAggregatorServer,
+        spawn_order_book_aggregator_service, OrderbookAggregatorService,
+    },
 };
+use tonic::transport::Server;
 
 pub const PRICE_LEVEL_CHANNEL_BUFFER: usize = 100;
 
@@ -12,9 +17,22 @@ pub const PRICE_LEVEL_CHANNEL_BUFFER: usize = 100;
 async fn main() -> Result<(), Box<dyn Error>> {
     let default_exchanges = vec![Exchange::Binance, Exchange::Bitstamp];
 
+    //TODO: add the summary buffer as a clap arg
+    let (order_book_aggregator_service, summary_tx) = server::OrderbookAggregatorService::new(300);
+    let router = Server::builder().add_service(OrderbookAggregatorServer::new(
+        order_book_aggregator_service,
+    ));
+    let socket_addr = "[::1]:50051".parse()?;
+
+    //TODO: add the pair as a clap arg
+
     let pair = ["", ""];
 
+    //TODO: add the depth as a clap arg
+
     let order_book_depth = 10;
+    //TODO: add the order book stream buffer as a clap arg
+
     let order_book_stream_buffer = 100;
 
     let aggregated_order_book =
@@ -34,5 +52,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     //TODO: spawn the grpc server, passes in the rx, this triggers any listeners to be served whenever an rx comes through
 
+    //TODO: rename this function
+    let service_handle = spawn_order_book_aggregator_service(router, socket_addr);
     Ok(())
 }
