@@ -136,9 +136,12 @@ where
             let mut first_ask = Ask::default();
             let mut best_n_asks: Vec<Level> = vec![];
             let mut last_ask = Ask::default();
+            dbg!("waiting");
 
             while let Some(price_level_update) = price_level_rx.recv().await {
                 let bids_fut = async {
+                    dbg!("bids");
+
                     //Add each bid to the aggregated order book, checking if the bid is better than the "worst" bid in the top n bids
                     let mut update_best_bids = false;
                     for bid in price_level_update.bids {
@@ -150,27 +153,30 @@ where
 
                     //If the bid is better than the "worst" bid in the top bids, update the best n bids
                     if update_best_bids {
-                        let best_bids = bids.lock().await.get_best_n_bids(best_n_orders);
-                        if let Some(bid) = &best_bids[0] {
-                            let first = bid.clone(); //TODO: see if you need to clone here
-
-                            //We can unwrap here because we have asserted that there is at least one bid in best_n_bids
-                            let last = best_bids
-                                .last()
-                                .expect("Could not get worst bid")
-                                .clone()
-                                .expect("Last bid in best 'n' bids is None");
-
+                        let mut best_bids = bids.lock().await.get_best_n_bids(best_n_orders);
+                        if let Some(_) = &best_bids[0] {
                             let mut best_n_levels = vec![];
-                            while let Some(Some(bid)) = best_bids.iter().next() {
-                                best_n_levels.push(Level {
-                                    price: bid.price.0,
-                                    amount: bid.quantity.0,
-                                    exchange: bid.exchange.to_string(),
-                                });
+
+                            let mut last_bid = 0;
+                            for bid_option in best_bids.iter() {
+                                if let Some(bid) = bid_option {
+                                    best_n_levels.push(Level {
+                                        price: bid.price.0,
+                                        amount: bid.quantity.0,
+                                        exchange: bid.exchange.to_string(),
+                                    });
+
+                                    last_bid += 1;
+                                } else {
+                                    break;
+                                }
                             }
 
-                            Some((best_n_levels, first, last))
+                            Some((
+                                best_n_levels,
+                                best_bids[0].take().unwrap(),
+                                best_bids[last_bid - 1].take().unwrap(),
+                            ))
                         } else {
                             //TODO: log an error here because there should be at least one bid, unless maybe we get an update first where there are only asks on the first update
                             None
@@ -182,6 +188,8 @@ where
 
                 //TODO: refactor these futures into functions
                 let asks_fut = async {
+                    dbg!("asks");
+
                     let mut update_best_asks = false;
 
                     for ask in price_level_update.asks {
@@ -192,27 +200,31 @@ where
                     }
 
                     if update_best_asks {
-                        let best_asks = asks.lock().await.get_best_n_asks(best_n_orders);
-                        if let Some(ask) = &best_asks[0] {
-                            let first = ask.clone(); //TODO: see if you need to clone here
+                        let mut best_asks = asks.lock().await.get_best_n_asks(best_n_orders);
 
-                            //We can unwrap here because we have asserted that there is at least one bid in best_n_bids
-                            let last = best_asks
-                                .last()
-                                .expect("Could not get worst bid")
-                                .clone()
-                                .expect("Last bid in best 'n' bids is None");
-
+                        if let Some(_) = &best_asks[0] {
                             let mut best_n_levels = vec![];
-                            while let Some(Some(ask)) = best_asks.iter().next() {
-                                best_n_levels.push(Level {
-                                    price: ask.price.0,
-                                    amount: ask.quantity.0,
-                                    exchange: ask.exchange.to_string(),
-                                });
+
+                            let mut last_ask = 0;
+                            for ask_option in best_asks.iter() {
+                                if let Some(ask) = ask_option {
+                                    best_n_levels.push(Level {
+                                        price: ask.price.0,
+                                        amount: ask.quantity.0,
+                                        exchange: ask.exchange.to_string(),
+                                    });
+
+                                    last_ask += 1;
+                                } else {
+                                    break;
+                                }
                             }
 
-                            Some((best_n_levels, first, last))
+                            Some((
+                                best_n_levels,
+                                best_asks[0].take().unwrap(),
+                                best_asks[last_ask - 1].take().unwrap(),
+                            ))
                         } else {
                             //TODO: log an error here
                             None
@@ -222,7 +234,10 @@ where
                     }
                 };
 
+                dbg!("joining");
+
                 let (updated_bids, updated_asks) = tokio::join!(bids_fut, asks_fut);
+                dbg!("finished");
 
                 if let Some((best_bids, first, last)) = updated_bids {
                     best_n_bids = best_bids;
@@ -243,6 +258,8 @@ where
                     bids: best_n_bids.clone(),
                     asks: best_n_asks.clone(),
                 };
+
+                //TODO: remove this dbg!(&summary);
 
                 summary_tx
                     .send(summary)

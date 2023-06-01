@@ -31,7 +31,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     //TODO: add the pair as a clap arg
 
-    let pair = ["", ""];
+    let pair = ["eth", "btc"];
 
     //TODO: add the depth as a clap arg
 
@@ -69,6 +69,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     //TODO: handle an error if it pops up
     let (result, _, _) = futures::future::select_all(futures).await;
+
+    dbg!(result);
 
     Ok(())
 }
