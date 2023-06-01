@@ -4,6 +4,7 @@ use orderbook_service::{Empty, Level, Summary};
 use tokio::sync::broadcast::error::RecvError;
 use tokio_stream::wrappers::errors::BroadcastStreamRecvError;
 
+use std::sync::Arc;
 use std::{
     pin::Pin,
     sync::atomic::{AtomicU32, Ordering},
@@ -20,7 +21,7 @@ pub mod orderbook_service {
 }
 
 pub struct OrderbookAggregatorService {
-    clients_connected: AtomicU32,
+    clients_connected: Arc<AtomicU32>,
     summary_rx: Receiver<Summary>,
 }
 
@@ -35,18 +36,17 @@ impl orderbook_service::orderbook_aggregator_server::OrderbookAggregator
         &self,
         _request: Request<Empty>,
     ) -> Result<Response<Self::BookSummaryStream>, Status> {
-        self.clients_connected.fetch_add(1, Ordering::Relaxed);
+        let clients_connected = self.clients_connected.clone();
+
+        let rx = self.summary_rx.resubscribe();
 
         let stream =
             tokio_stream::wrappers::BroadcastStream::new(rx).map(|summary| match summary {
                 Ok(summary) => Ok(summary),
                 Err(e) => match e {
-                    BroadcastStreamRecvError::Closed => {
-                        //TODO: log error and cleanup
-                        self.clients_connected.fetch_sub(1, Ordering::Relaxed);
-                        Err(Status::internal("Client disconnected"))
+                    BroadcastStreamRecvError::Lagged(_) => {
+                        Err(Status::internal("Stream lagged too far behind"))
                     }
-                    RecvError::Lagged(_) => Err(Status::internal("Client lagged behind")),
                 },
             });
 
