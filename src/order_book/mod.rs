@@ -84,10 +84,11 @@ where
 
     pub fn spawn_bid_ask_service(
         &self,
-        best_n_orders: usize,
         max_order_book_depth: usize,
         order_book_stream_buffer: usize,
         price_level_buffer: usize,
+        best_n_orders: usize,
+
         summary_tx: Sender<Summary>,
     ) -> Vec<JoinHandle<Result<(), OrderBookError>>> {
         //TODO: add some error for when the best order depth is greater than the max order book depth

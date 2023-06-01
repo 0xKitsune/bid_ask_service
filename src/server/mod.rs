@@ -27,7 +27,7 @@ pub mod orderbook_service {
     tonic::include_proto!("orderbookservice");
 }
 
-pub fn spawn_order_book_aggregator_service(
+pub fn spawn_order_book_service(
     router: Router,
     socket_address: SocketAddr,
 ) -> JoinHandle<Result<(), ServerError>> {
