@@ -1,9 +1,9 @@
-use crate::exchanges::{
-    binance::error::{BinanceError},
-    bitstamp::error::BitstampError,
+use crate::{
+    exchanges::{binance::error::BinanceError, bitstamp::error::BitstampError},
+    server::orderbook_service::Summary,
 };
 
-use super::PriceLevelUpdate;
+use super::price_level::PriceLevelUpdate;
 
 #[derive(thiserror::Error, Debug)]
 pub enum OrderBookError {
@@ -25,4 +25,6 @@ pub enum OrderBookError {
     PoisonedLock,
     #[error("Error when converting to Utf8 from string")]
     FromUtf8Error(#[from] std::string::FromUtf8Error),
+    #[error("Error when sending summary through channel")]
+    SummarySendError(#[from] tokio::sync::broadcast::error::SendError<Summary>),
 }

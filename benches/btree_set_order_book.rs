@@ -1,10 +1,6 @@
-use std::{
-    collections::{BTreeSet},
-};
+use std::collections::BTreeSet;
 
-use criterion::{
-    black_box, criterion_group, criterion_main, BatchSize, Criterion,
-};
+use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 use kbas::{
     exchanges::Exchange,
     order_book::{
@@ -14,7 +10,6 @@ use kbas::{
 };
 use ordered_float::OrderedFloat;
 use rand::Rng;
-
 
 fn initialize_bids() -> BTreeSet<Bid> {
     let mut order_book = BTreeSet::<Bid>::new();

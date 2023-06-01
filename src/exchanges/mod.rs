@@ -1,10 +1,11 @@
 pub mod binance;
+pub mod error;
 
 pub mod bitstamp;
 pub mod exchange_utils;
 
 use async_trait::async_trait;
-use tokio::sync::mpsc::{Sender};
+use tokio::sync::mpsc::Sender;
 use tokio::task::JoinHandle;
 
 use crate::order_book::error::OrderBookError;
@@ -57,6 +58,15 @@ impl Exchange {
                 price_level_tx,
             )
             .await?),
+        }
+    }
+}
+
+impl ToString for Exchange {
+    fn to_string(&self) -> String {
+        match self {
+            Exchange::Bitstamp => "bitstamp".to_string(),
+            Exchange::Binance => "binance".to_string(),
         }
     }
 }

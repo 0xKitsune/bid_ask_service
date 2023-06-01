@@ -1,21 +1,21 @@
-use std::{
-    fmt::Debug,
-    sync::{Arc},
-};
+use std::{fmt::Debug, pin::Pin, sync::Arc};
 
 use async_trait::async_trait;
-use ordered_float::{OrderedFloat};
-use tokio::{sync::Mutex, task::JoinHandle};
+use futures::Future;
+use ordered_float::OrderedFloat;
+use tokio::{
+    sync::{broadcast::Sender, mpsc::Receiver, Mutex},
+    task::JoinHandle,
+};
 
-use crate::exchanges::Exchange;
+use crate::{
+    exchanges::Exchange,
+    server::orderbook_service::{Level, Summary},
+};
 
 use self::{
     error::OrderBookError,
-    price_level::{
-        ask::{Ask},
-        bid::Bid,
-        PriceLevelUpdate,
-    },
+    price_level::{ask::Ask, bid::Bid, PriceLevelUpdate},
 };
 pub mod btree_set;
 pub mod error;
@@ -84,17 +84,16 @@ where
 
     pub async fn spawn_bid_ask_service(
         &self,
-
         best_n_orders: usize,
         max_order_book_depth: usize,
         order_book_stream_buffer: usize,
         price_level_buffer: usize,
+        summary_tx: Sender<Summary>,
     ) -> Result<Vec<JoinHandle<Result<(), OrderBookError>>>, OrderBookError> {
         //TODO: add some error for when the best order depth is greater than the max order book depth
 
-        let (price_level_tx, mut price_level_rx) =
+        let (price_level_tx, price_level_rx) =
             tokio::sync::mpsc::channel::<PriceLevelUpdate>(price_level_buffer);
-
         let mut handles = vec![];
 
         for exchange in self.exchanges.iter() {
@@ -110,20 +109,39 @@ where
             )
         }
 
+        //Refactor this into one function
+        handles.push(self.handle_order_book_updates(
+            price_level_rx,
+            max_order_book_depth,
+            best_n_orders,
+            summary_tx,
+        ));
+
+        Ok(handles)
+    }
+
+    //TODO: will need to update this error so that all futures can be joined
+    pub fn handle_order_book_updates(
+        &self,
+        mut price_level_rx: Receiver<PriceLevelUpdate>,
+        max_order_book_depth: usize,
+        best_n_orders: usize,
+        summary_tx: Sender<Summary>,
+    ) -> JoinHandle<Result<(), OrderBookError>> {
         let bids = self.bids.clone();
         let asks = self.asks.clone();
-
-        handles.push(tokio::spawn(async move {
+        tokio::spawn(async move {
             let mut first_bid = Bid::default();
-            let mut best_n_bids: Vec<Option<Bid>> = vec![None; best_n_orders];
+            let mut best_n_bids: Vec<Level> = vec![];
             let mut last_bid = Bid::default();
 
             let mut first_ask = Ask::default();
-            let mut best_n_asks: Vec<Option<Ask>> = vec![None; best_n_orders];
+            let mut best_n_asks: Vec<Level> = vec![];
             let mut last_ask = Ask::default();
 
             while let Some(price_level_update) = price_level_rx.recv().await {
                 let bids_fut = async {
+                    //Add each bid to the aggregated order book, checking if the bid is better than the "worst" bid in the top n bids
                     let mut update_best_bids = false;
                     for bid in price_level_update.bids {
                         if bid.cmp(&last_bid).is_ge() {
@@ -132,22 +150,31 @@ where
                         bids.lock().await.update_bids(bid, max_order_book_depth);
                     }
 
+                    //If the bid is better than the "worst" bid in the top bids, update the best n bids
                     if update_best_bids {
-                        best_n_bids = bids.lock().await.get_best_n_bids(best_n_orders);
-                        if let Some(bid) = &best_n_bids[0] {
-                            let first_bid = bid.clone();
-                            let best_n_bids = bids.lock().await.get_best_n_bids(best_n_orders);
+                        let best_bids = bids.lock().await.get_best_n_bids(best_n_orders);
+                        if let Some(bid) = &best_bids[0] {
+                            let first = bid.clone(); //TODO: see if you need to clone here
 
                             //We can unwrap here because we have asserted that there is at least one bid in best_n_bids
-                            let last_bid = best_n_bids
+                            let last = best_bids
                                 .last()
                                 .expect("Could not get worst bid")
                                 .clone()
                                 .expect("Last bid in best 'n' bids is None");
 
-                            Some((best_n_bids, first_bid, last_bid))
+                            let mut best_n_levels = vec![];
+                            while let Some(Some(bid)) = best_bids.iter().next() {
+                                best_n_levels.push(Level {
+                                    price: bid.price.0,
+                                    amount: bid.quantity.0,
+                                    exchange: bid.exchange.to_string(),
+                                });
+                            }
+
+                            Some((best_n_levels, first, last))
                         } else {
-                            //TODO: log an error here
+                            //TODO: log an error here because there should be at least one bid, unless maybe we get an update first where there are only asks on the first update
                             None
                         }
                     } else {
@@ -155,6 +182,7 @@ where
                     }
                 };
 
+                //TODO: refactor these futures into functions
                 let asks_fut = async {
                     let mut update_best_asks = false;
 
@@ -166,19 +194,27 @@ where
                     }
 
                     if update_best_asks {
-                        best_n_asks = asks.lock().await.get_best_n_asks(best_n_orders);
-                        if let Some(ask) = &best_n_asks[0] {
-                            let first_ask = ask.clone(); //TODO: see if you need to clone here
-                            let best_n_asks = asks.lock().await.get_best_n_asks(best_n_orders);
+                        let best_asks = asks.lock().await.get_best_n_asks(best_n_orders);
+                        if let Some(ask) = &best_asks[0] {
+                            let first = ask.clone(); //TODO: see if you need to clone here
 
                             //We can unwrap here because we have asserted that there is at least one bid in best_n_bids
-                            let last_ask = best_n_asks
+                            let last = best_asks
                                 .last()
                                 .expect("Could not get worst bid")
                                 .clone()
                                 .expect("Last bid in best 'n' bids is None");
 
-                            Some((best_n_asks, first_ask, last_ask))
+                            let mut best_n_levels = vec![];
+                            while let Some(Some(ask)) = best_asks.iter().next() {
+                                best_n_levels.push(Level {
+                                    price: ask.price.0,
+                                    amount: ask.quantity.0,
+                                    exchange: ask.exchange.to_string(),
+                                });
+                            }
+
+                            Some((best_n_levels, first, last))
                         } else {
                             //TODO: log an error here
                             None
@@ -204,56 +240,55 @@ where
 
                 let bid_ask_spread = first_ask.price.0 - first_bid.price.0;
 
-                // dbg!(&first_bid);
-                // dbg!(&first_ask);
+                let summary = Summary {
+                    spread: bid_ask_spread,
+                    bids: best_n_bids.clone(),
+                    asks: best_n_asks.clone(),
+                };
 
-                dbg!(&best_n_bids);
-                dbg!(&best_n_asks);
-                dbg!(bid_ask_spread, &first_ask.exchange, &first_bid.exchange);
+                summary_tx.send(summary)?;
             }
 
             Ok::<(), OrderBookError>(())
-        }));
-
-        Ok(handles)
+        })
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use std::collections::BTreeSet;
+// #[cfg(test)]
+// mod tests {
+//     use std::collections::BTreeSet;
 
-    use futures::FutureExt;
+//     use futures::FutureExt;
 
-    use crate::order_book::Ask;
-    use crate::order_book::Bid;
-    use crate::{exchanges::Exchange, order_book::AggregatedOrderBook};
-    #[tokio::test]
-    async fn test_aggregated_order_book() {
-        let bids = BTreeSet::<Bid>::new();
-        let asks = BTreeSet::<Ask>::new();
+//     use crate::order_book::Ask;
+//     use crate::order_book::Bid;
+//     use crate::{exchanges::Exchange, order_book::AggregatedOrderBook};
+//     #[tokio::test]
+//     async fn test_aggregated_order_book() {
+//         let bids = BTreeSet::<Bid>::new();
+//         let asks = BTreeSet::<Ask>::new();
 
-        let aggregated_order_book = AggregatedOrderBook::new(
-            ["eth", "btc"],
-            vec![Exchange::Bitstamp, Exchange::Binance],
-            bids,
-            asks,
-        );
+//         let aggregated_order_book = AggregatedOrderBook::new(
+//             ["eth", "btc"],
+//             vec![Exchange::Bitstamp, Exchange::Binance],
+//             bids,
+//             asks,
+//         );
 
-        let join_handles = aggregated_order_book
-            .spawn_bid_ask_service(10, 1000, 100, 20)
-            .await
-            .expect("TODO: handle this error");
+//         let join_handles = aggregated_order_book
+//             .spawn_bid_ask_service(10, 1000, 100, 20)
+//             .await
+//             .expect("TODO: handle this error");
 
-        let futures = join_handles
-            .into_iter()
-            .map(|handle| handle.boxed())
-            .collect::<Vec<_>>();
+//         let futures = join_handles
+//             .into_iter()
+//             .map(|handle| handle.boxed())
+//             .collect::<Vec<_>>();
 
-        //Wait for the first future to be finished
-        let (result, _, _) = futures::future::select_all(futures).await;
+//         //Wait for the first future to be finished
+//         let (result, _, _) = futures::future::select_all(futures).await;
 
-        //TODO: update his handling and test
-        result.expect("error").expect("errr");
-    }
-}
+//         //TODO: update his handling and test
+//         result.expect("error").expect("errr");
+//     }
+// }

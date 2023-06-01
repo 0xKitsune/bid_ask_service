@@ -1,22 +1,23 @@
+pub mod error;
+
 use futures::Stream;
 use futures::StreamExt;
 use orderbook_service::{Empty, Level, Summary};
-use tokio::sync::broadcast::error::RecvError;
-use tokio::task::JoinHandle;
-use tokio_stream::wrappers::errors::BroadcastStreamRecvError;
-use tonic::transport::server::Router;
-use tonic::transport::Server;
-
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::{
     pin::Pin,
     sync::atomic::{AtomicU32, Ordering},
 };
+use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::{
     broadcast::{Receiver, Sender},
     mpsc,
 };
+use tokio::task::JoinHandle;
+use tokio_stream::wrappers::errors::BroadcastStreamRecvError;
+use tonic::transport::server::Router;
+use tonic::transport::Server;
 use tonic::{Request, Response, Status, Streaming};
 
 pub mod orderbook_service {

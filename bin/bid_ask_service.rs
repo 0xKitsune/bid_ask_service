@@ -1,8 +1,11 @@
-use std::error::Error;
+use std::{collections::BTreeSet, error::Error};
 
 use kbas::{
     exchanges::Exchange,
-    order_book::{rbtree::RBTreeOrderBook, AggregatedOrderBook},
+    order_book::{
+        price_level::{ask::Ask, bid::Bid},
+        AggregatedOrderBook,
+    },
     server::{
         self, orderbook_service::orderbook_aggregator_server::OrderbookAggregatorServer,
         spawn_order_book_aggregator_service, OrderbookAggregatorService,
@@ -35,16 +38,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let order_book_stream_buffer = 100;
 
-    let aggregated_order_book =
-        AggregatedOrderBook::new(pair, default_exchanges, RBTreeOrderBook::new());
+    let aggregated_order_book = AggregatedOrderBook::new(
+        pair,
+        default_exchanges,
+        BTreeSet::<Bid>::new(),
+        BTreeSet::<Ask>::new(),
+    );
 
-    aggregated_order_book
-        .listen_to_bid_ask_spread(
-            order_book_depth,
-            order_book_stream_buffer,
-            PRICE_LEVEL_CHANNEL_BUFFER,
-        )
-        .await?;
+    // aggregated_order_book
+    //     .spawn_bid_ask_service(
+    //         order_book_depth,
+    //         order_book_stream_buffer,
+    //         PRICE_LEVEL_CHANNEL_BUFFER,
+    //     )
+    //     .await?;
 
     //TODO: initializes the exchanges we want, grabs the order book that we want, uses all of this to spin up the aggregated order book
 
