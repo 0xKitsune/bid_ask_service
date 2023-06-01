@@ -1,5 +1,5 @@
 use crate::exchanges::{
-    binance::error::{self, BinanceError},
+    binance::error::{BinanceError},
     bitstamp::error::BitstampError,
 };
 

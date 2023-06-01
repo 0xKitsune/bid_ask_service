@@ -43,13 +43,13 @@ impl OrderBookService for Bitstamp {
 #[cfg(test)]
 mod tests {
     use std::sync::{
-        atomic::{AtomicU32, AtomicU8, Ordering},
+        atomic::{AtomicU32, Ordering},
         Arc,
     };
 
     use crate::{exchanges::bitstamp::Bitstamp, order_book::price_level::PriceLevelUpdate};
     use crate::{
-        exchanges::{binance::Binance, OrderBookService},
+        exchanges::{OrderBookService},
         order_book::error::OrderBookError,
     };
     use futures::FutureExt;
@@ -75,7 +75,7 @@ mod tests {
                 }
             }
 
-            return Ok::<(), OrderBookError>(());
+            Ok::<(), OrderBookError>(())
         });
 
         join_handles.push(price_level_update_handle);

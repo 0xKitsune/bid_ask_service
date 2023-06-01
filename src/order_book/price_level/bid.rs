@@ -1,12 +1,9 @@
 use std::{
     cmp::Ordering,
-    collections::BTreeMap,
-    rc::Weak,
-    sync::{Arc, RwLock},
 };
 
-use ordered_float::{Float, OrderedFloat};
-use tokio::task::JoinHandle;
+use ordered_float::{OrderedFloat};
+
 
 use crate::{exchanges::Exchange, order_book::Order};
 
@@ -88,7 +85,7 @@ mod tests {
 
     use crate::{
         exchanges::Exchange,
-        order_book::{Ask, Bid},
+        order_book::{Bid},
     };
 
     #[test]

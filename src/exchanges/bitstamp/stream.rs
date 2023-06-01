@@ -1,14 +1,14 @@
-use std::{fs::File, io::Write};
 
-use super::Bitstamp;
+
+
 use crate::{
     exchanges::{exchange_utils, Exchange},
-    order_book::price_level::{ask::Ask, bid::Bid, OrderType, PriceLevelUpdate},
+    order_book::price_level::{ask::Ask, bid::Bid, PriceLevelUpdate},
 };
-use async_trait::async_trait;
+
 use futures::{SinkExt, StreamExt};
 use serde_derive::{Deserialize, Serialize};
-use serde_json::{json, Value};
+
 use tokio::{
     sync::mpsc::{Receiver, Sender},
     task::JoinHandle,
@@ -17,7 +17,7 @@ use tungstenite::Message;
 
 use crate::{exchanges::bitstamp::error::BitstampError, order_book::error::OrderBookError};
 
-use super::OrderBookService;
+
 
 const WS_BASE_ENDPOINT: &str = "wss://ws.bitstamp.net/";
 const SUBSCRIBE_EVENT: &str = "bts:subscribe";
@@ -261,7 +261,7 @@ pub struct OrderBookUpdateData {
 }
 
 async fn get_order_book_snapshot(pair: &str) -> Result<OrderBookSnapshot, OrderBookError> {
-    let snapshot_endpoint = ORDER_BOOK_SNAPSHOT_BASE_ENDPOINT.to_owned() + &pair;
+    let snapshot_endpoint = ORDER_BOOK_SNAPSHOT_BASE_ENDPOINT.to_owned() + pair;
     let snapshot_response = reqwest::get(snapshot_endpoint).await?;
     if snapshot_response.status().is_success() {
         Ok(snapshot_response.json::<OrderBookSnapshot>().await?)
@@ -275,13 +275,12 @@ async fn get_order_book_snapshot(pair: &str) -> Result<OrderBookSnapshot, OrderB
 #[cfg(test)]
 mod tests {
     use std::sync::{
-        atomic::{AtomicU32, AtomicU8, Ordering},
+        atomic::{AtomicU32, Ordering},
         Arc,
     };
 
     use crate::exchanges::bitstamp::stream::spawn_order_book_stream;
     use crate::{
-        exchanges::{binance::Binance, bitstamp::Bitstamp, OrderBookService},
         order_book::error::OrderBookError,
     };
     use futures::FutureExt;
@@ -311,7 +310,7 @@ mod tests {
                 }
             }
 
-            return Ok::<(), OrderBookError>(());
+            Ok::<(), OrderBookError>(())
         });
 
         join_handles.push(order_book_stream_handle);

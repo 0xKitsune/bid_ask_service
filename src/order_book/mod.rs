@@ -1,13 +1,10 @@
 use std::{
-    cmp::Ordering,
-    collections::BTreeMap,
     fmt::Debug,
-    rc::Weak,
-    sync::{Arc, RwLock},
+    sync::{Arc},
 };
 
 use async_trait::async_trait;
-use ordered_float::{Float, OrderedFloat};
+use ordered_float::{OrderedFloat};
 use tokio::{sync::Mutex, task::JoinHandle};
 
 use crate::exchanges::Exchange;
@@ -15,7 +12,7 @@ use crate::exchanges::Exchange;
 use self::{
     error::OrderBookError,
     price_level::{
-        ask::{self, Ask},
+        ask::{Ask},
         bid::Bid,
         PriceLevelUpdate,
     },

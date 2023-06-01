@@ -1,29 +1,25 @@
 use serde_derive::Deserialize;
 use tokio::{sync::mpsc::Receiver, task::JoinHandle};
 
-use super::Binance;
+
 use crate::exchanges::binance::error::BinanceError;
 use crate::order_book::error::OrderBookError;
 use crate::order_book::price_level::ask::Ask;
 use crate::order_book::price_level::bid::Bid;
-use crate::order_book::price_level::{OrderType, PriceLevelUpdate};
+use crate::order_book::price_level::{PriceLevelUpdate};
 
-use core::fmt;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
 
-use crate::exchanges::{Exchange, OrderBookService};
 
-use async_trait::async_trait;
+
+
+use crate::exchanges::{Exchange};
+
+
 use futures::{SinkExt, StreamExt};
-use serde::{
-    de::{self, SeqAccess, Visitor},
-    Deserializer,
-};
+
 
 use tokio::{
-    net::TcpStream,
-    sync::mpsc::{error::SendError, Sender},
+    sync::mpsc::{Sender},
 };
 
 use crate::exchanges::exchange_utils;
@@ -130,7 +126,7 @@ pub async fn spawn_stream_handler(
                             //TODO:
                             // make a note that the first update id will always be zero
                             if order_book_update.first_update_id <= last_update_id + 1
-                                && order_book_update.final_updated_id >= last_update_id + 1
+                                && order_book_update.final_updated_id > last_update_id
                             {
                                 let mut bids = vec![];
 
@@ -249,7 +245,7 @@ async fn get_order_book_snapshot(
     order_book_depth: usize,
 ) -> Result<OrderBookSnapshot, OrderBookError> {
     let snapshot_endpoint = ORDER_BOOK_SNAPSHOT_BASE_ENDPOINT.to_owned()
-        + &pair
+        + pair
         + "&limit="
         + order_book_depth.to_string().as_str();
 
@@ -268,18 +264,17 @@ async fn get_order_book_snapshot(
 #[cfg(test)]
 mod tests {
     use std::sync::{
-        atomic::{AtomicU32, AtomicU8, Ordering},
+        atomic::{AtomicU32, Ordering},
         Arc,
     };
 
     use crate::exchanges::binance::spawn_order_book_stream;
-    use crate::exchanges::binance::stream::OrderBookUpdate;
+    
     use crate::{
-        exchanges::{binance::Binance, OrderBookService},
         order_book::error::OrderBookError,
     };
     use futures::FutureExt;
-    use tokio::sync::mpsc::Receiver;
+    
 
     //TODO: add a test for order book snapshot
 
@@ -308,7 +303,7 @@ mod tests {
                 }
             }
 
-            return Ok::<(), OrderBookError>(());
+            Ok::<(), OrderBookError>(())
         });
 
         join_handles.push(order_book_stream_handle);

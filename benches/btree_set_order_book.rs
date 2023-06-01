@@ -1,10 +1,9 @@
 use std::{
-    collections::{BTreeMap, BTreeSet},
-    sync::Arc,
+    collections::{BTreeSet},
 };
 
 use criterion::{
-    async_executor::AsyncExecutor, black_box, criterion_group, criterion_main, BatchSize, Criterion,
+    black_box, criterion_group, criterion_main, BatchSize, Criterion,
 };
 use kbas::{
     exchanges::Exchange,
@@ -15,7 +14,7 @@ use kbas::{
 };
 use ordered_float::OrderedFloat;
 use rand::Rng;
-use tokio::{runtime::Runtime, sync::Mutex};
+
 
 fn initialize_bids() -> BTreeSet<Bid> {
     let mut order_book = BTreeSet::<Bid>::new();
@@ -102,7 +101,7 @@ fn bench_update_bid(c: &mut Criterion) {
                 bid.set_quantity(OrderedFloat(new_quantity));
                 (order_book.clone(), bid)
             },
-            |(mut order_book, bid)| order_book.update_bids(black_box(bid.clone()), 50),
+            |(mut order_book, bid)| order_book.update_bids(black_box(bid), 50),
             BatchSize::SmallInput,
         )
     });
@@ -165,7 +164,7 @@ fn bench_update_ask(c: &mut Criterion) {
                 ask.set_quantity(OrderedFloat(new_quantity));
                 (order_book.clone(), ask)
             },
-            |(mut order_book, ask)| order_book.update_asks(black_box(ask.clone()), 50),
+            |(mut order_book, ask)| order_book.update_asks(black_box(ask), 50),
             BatchSize::SmallInput,
         )
     });

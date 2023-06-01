@@ -1,13 +1,12 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeSet};
 
-use ordered_float::OrderedFloat;
 
-use crate::exchanges::Exchange;
+
+
 
 use super::{
-    error::OrderBookError,
     price_level::{ask::Ask, bid::Bid},
-    BuySide, Order, OrderBook, SellSide,
+    BuySide, Order, SellSide,
 };
 
 impl BuySide for BTreeSet<Bid> {
@@ -115,7 +114,6 @@ mod tests {
     use crate::{
         exchanges::Exchange,
         order_book::{
-            btree_set::tests,
             price_level::{ask::Ask, bid::Bid},
             BuySide, Order, OrderBook, SellSide,
         },
@@ -331,7 +329,7 @@ mod tests {
         //insert the replacement bids
         order_book.update_bids(replacement_bid_6, 10);
         order_book.update_bids(replacement_bid_3, 10);
-        order_book.update_bids(replacement_bid_1.clone(), 10);
+        order_book.update_bids(replacement_bid_1, 10);
 
         let best_bids = order_book.get_best_n_bids(3);
 
@@ -449,7 +447,7 @@ mod tests {
         order_book.update_asks(ask_2, 10);
         order_book.update_asks(ask_3, 10);
         order_book.update_asks(ask_4.clone(), 10);
-        order_book.update_asks(ask_5.clone(), 10);
+        order_book.update_asks(ask_5, 10);
         order_book.update_asks(ask_6.clone(), 10);
 
         ask_1.set_quantity(OrderedFloat(0.0));
@@ -516,7 +514,7 @@ mod tests {
 
         let best_ask = order_book.get_best_ask();
 
-        dbg!(best_ask.clone());
+        dbg!(best_ask);
         assert!(*best_ask.expect("Could not get best ask") == replacement_ask_1);
 
         assert_eq!(actual_asks, expected_asks);
@@ -558,7 +556,7 @@ mod tests {
         //insert the replacement bids
         order_book.update_asks(replacement_ask_6, 10);
         order_book.update_asks(replacement_ask_3, 10);
-        order_book.update_asks(replacement_ask_1.clone(), 10);
+        order_book.update_asks(replacement_ask_1, 10);
 
         let best_asks = order_book.get_best_n_asks(3);
 
