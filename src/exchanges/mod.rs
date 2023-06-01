@@ -77,8 +77,8 @@ impl Exchange {
 impl ToString for Exchange {
     fn to_string(&self) -> String {
         match self {
-            Exchange::Bitstamp => "bitstamp".to_string(),
-            Exchange::Binance => "binance".to_string(),
+            Exchange::Bitstamp => BITSTAMP.to_owned(),
+            Exchange::Binance => BINANCE.to_owned(),
         }
     }
 }
