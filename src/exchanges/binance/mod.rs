@@ -1,36 +1,29 @@
-use core::fmt;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
+
+
+
 
 pub mod error;
 mod stream;
 
-use crate::exchanges::Exchange;
-use crate::order_book::{self, PriceLevelUpdate};
-use crate::{
-    order_book::error::OrderBookError,
-    order_book::{OrderBook, PriceLevel},
-};
+
+use crate::order_book::error::OrderBookError;
+use crate::order_book::price_level::PriceLevelUpdate;
 
 use async_trait::async_trait;
-use futures::{SinkExt, StreamExt};
-use serde::{
-    de::{self, SeqAccess, Visitor},
-    Deserializer,
-};
-use serde_derive::Deserialize;
+
+
+
 
 use tokio::{
-    net::TcpStream,
-    sync::mpsc::{error::SendError, Receiver, Sender},
+    sync::mpsc::{Sender},
     task::JoinHandle,
 };
 
-use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
-use tungstenite::protocol::frame::Frame;
-use tungstenite::{protocol::WebSocketConfig, Message};
 
-use self::error::BinanceError;
+
+
+
+
 use self::stream::{spawn_order_book_stream, spawn_stream_handler};
 
 use super::OrderBookService;
@@ -74,13 +67,13 @@ impl OrderBookService for Binance {
 #[cfg(test)]
 mod tests {
     use std::sync::{
-        atomic::{AtomicU32, AtomicU8, Ordering},
+        atomic::{AtomicU32, Ordering},
         Arc,
     };
 
     use crate::{
         exchanges::{binance::Binance, OrderBookService},
-        order_book::{error::OrderBookError, PriceLevel, PriceLevelUpdate},
+        order_book::{error::OrderBookError, price_level::PriceLevelUpdate},
     };
     use futures::FutureExt;
 
@@ -106,7 +99,7 @@ mod tests {
                 }
             }
 
-            return Ok::<(), OrderBookError>(());
+            Ok::<(), OrderBookError>(())
         });
 
         join_handles.push(price_level_update_handle);

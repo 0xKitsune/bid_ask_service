@@ -1,26 +1,23 @@
-use std::{fs::File, io::Write};
 
-use super::Bitstamp;
+
+
 use crate::{
     exchanges::{exchange_utils, Exchange},
-    order_book::PriceLevel,
+    order_book::price_level::{ask::Ask, bid::Bid, PriceLevelUpdate},
 };
-use async_trait::async_trait;
+
 use futures::{SinkExt, StreamExt};
 use serde_derive::{Deserialize, Serialize};
-use serde_json::{json, Value};
+
 use tokio::{
     sync::mpsc::{Receiver, Sender},
     task::JoinHandle,
 };
 use tungstenite::Message;
 
-use crate::{
-    exchanges::bitstamp::error::BitstampError,
-    order_book::{error::OrderBookError, PriceLevelUpdate},
-};
+use crate::{exchanges::bitstamp::error::BitstampError, order_book::error::OrderBookError};
 
-use super::OrderBookService;
+
 
 const WS_BASE_ENDPOINT: &str = "wss://ws.bitstamp.net/";
 const SUBSCRIBE_EVENT: &str = "bts:subscribe";
@@ -143,7 +140,6 @@ pub async fn spawn_stream_handler(
                     let order_book_event = serde_json::from_str::<OrderBookEvent>(&message)?;
 
                     if order_book_event.event == DATA_EVENT {
-                        dbg!(&message);
                         let order_book_update = serde_json::from_str::<OrderBookUpdate>(&message)?;
 
                         let order_book_data = order_book_update.data;
@@ -152,25 +148,20 @@ pub async fn spawn_stream_handler(
                             //TODO: potentially add some error logging here
                             continue;
                         } else {
+                            let mut bids = vec![];
                             for bid in order_book_data.bids.into_iter() {
-                                price_level_tx
-                                    .send(PriceLevelUpdate::Bid(PriceLevel::new(
-                                        bid[0],
-                                        bid[1],
-                                        Exchange::Binance,
-                                    )))
-                                    .await?;
+                                bids.push(Bid::new(bid[0], bid[1], Exchange::Bitstamp));
                             }
 
+                            let mut asks = vec![];
+
                             for ask in order_book_data.asks.into_iter() {
-                                price_level_tx
-                                    .send(PriceLevelUpdate::Ask(PriceLevel::new(
-                                        ask[0],
-                                        ask[1],
-                                        Exchange::Binance,
-                                    )))
-                                    .await?;
+                                asks.push(Ask::new(ask[0], ask[1], Exchange::Bitstamp));
                             }
+
+                            price_level_tx
+                                .send(PriceLevelUpdate::new(bids, asks))
+                                .await?;
 
                             last_microtimestamp = order_book_data.microtimestamp;
                         }
@@ -181,29 +172,22 @@ pub async fn spawn_stream_handler(
                     //This is an internal message signaling that we should get the depth snapshot and send it through the channel
                     if message.is_empty() {
                         let snapshot = get_order_book_snapshot(&pair).await?;
-
-                        for bid in snapshot.bids.iter() {
-                            price_level_tx
-                                .send(PriceLevelUpdate::Bid(PriceLevel::new(
-                                    bid[0],
-                                    bid[1],
-                                    Exchange::Bitstamp,
-                                )))
-                                .await?;
+                        let mut bids = vec![];
+                        for bid in snapshot.bids.into_iter() {
+                            bids.push(Bid::new(bid[0], bid[1], Exchange::Bitstamp));
                         }
 
-                        for ask in snapshot.asks.iter() {
-                            price_level_tx
-                                .send(PriceLevelUpdate::Bid(PriceLevel::new(
-                                    ask[0],
-                                    ask[1],
-                                    Exchange::Bitstamp,
-                                )))
-                                .await?;
+                        let mut asks = vec![];
+
+                        for ask in snapshot.asks.into_iter() {
+                            asks.push(Ask::new(ask[0], ask[1], Exchange::Bitstamp));
                         }
 
-                        //TODO: update timestamp if needed or whatever metric we are using to check if valid order
-                        // last_update_id = snapshot.last_update_id;
+                        price_level_tx
+                            .send(PriceLevelUpdate::new(bids, asks))
+                            .await?;
+
+                        last_microtimestamp = snapshot.microtimestamp;
                     }
                 }
 
@@ -277,7 +261,7 @@ pub struct OrderBookUpdateData {
 }
 
 async fn get_order_book_snapshot(pair: &str) -> Result<OrderBookSnapshot, OrderBookError> {
-    let snapshot_endpoint = ORDER_BOOK_SNAPSHOT_BASE_ENDPOINT.to_owned() + &pair;
+    let snapshot_endpoint = ORDER_BOOK_SNAPSHOT_BASE_ENDPOINT.to_owned() + pair;
     let snapshot_response = reqwest::get(snapshot_endpoint).await?;
     if snapshot_response.status().is_success() {
         Ok(snapshot_response.json::<OrderBookSnapshot>().await?)
@@ -291,14 +275,13 @@ async fn get_order_book_snapshot(pair: &str) -> Result<OrderBookSnapshot, OrderB
 #[cfg(test)]
 mod tests {
     use std::sync::{
-        atomic::{AtomicU32, AtomicU8, Ordering},
+        atomic::{AtomicU32, Ordering},
         Arc,
     };
 
     use crate::exchanges::bitstamp::stream::spawn_order_book_stream;
     use crate::{
-        exchanges::{binance::Binance, bitstamp::Bitstamp, OrderBookService},
-        order_book::{error::OrderBookError, PriceLevel, PriceLevelUpdate},
+        order_book::error::OrderBookError,
     };
     use futures::FutureExt;
     #[tokio::test]
@@ -327,7 +310,7 @@ mod tests {
                 }
             }
 
-            return Ok::<(), OrderBookError>(());
+            Ok::<(), OrderBookError>(())
         });
 
         join_handles.push(order_book_stream_handle);

@@ -1,28 +1,25 @@
 use serde_derive::Deserialize;
 use tokio::{sync::mpsc::Receiver, task::JoinHandle};
 
-use super::Binance;
+
 use crate::exchanges::binance::error::BinanceError;
 use crate::order_book::error::OrderBookError;
+use crate::order_book::price_level::ask::Ask;
+use crate::order_book::price_level::bid::Bid;
+use crate::order_book::price_level::{PriceLevelUpdate};
 
-use core::fmt;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
 
-use crate::exchanges::{Exchange, OrderBookService};
-use crate::order_book::{self, PriceLevelUpdate};
-use crate::order_book::{OrderBook, PriceLevel};
 
-use async_trait::async_trait;
+
+
+use crate::exchanges::{Exchange};
+
+
 use futures::{SinkExt, StreamExt};
-use serde::{
-    de::{self, SeqAccess, Visitor},
-    Deserializer,
-};
+
 
 use tokio::{
-    net::TcpStream,
-    sync::mpsc::{error::SendError, Sender},
+    sync::mpsc::{Sender},
 };
 
 use crate::exchanges::exchange_utils;
@@ -116,7 +113,6 @@ pub async fn spawn_stream_handler(
         while let Some(message) = ws_stream_rx.recv().await {
             match message {
                 tungstenite::Message::Text(message) => {
-                    dbg!(&message);
                     let order_book_event = serde_json::from_str::<OrderBookEvent>(&message)?;
 
                     if order_book_event.event == DEPTH_UPDATE_EVENT {
@@ -130,27 +126,22 @@ pub async fn spawn_stream_handler(
                             //TODO:
                             // make a note that the first update id will always be zero
                             if order_book_update.first_update_id <= last_update_id + 1
-                                && order_book_update.final_updated_id >= last_update_id + 1
+                                && order_book_update.final_updated_id > last_update_id
                             {
+                                let mut bids = vec![];
+
                                 for bid in order_book_update.bids.into_iter() {
-                                    price_level_tx
-                                        .send(PriceLevelUpdate::Bid(PriceLevel::new(
-                                            bid[0],
-                                            bid[1],
-                                            Exchange::Binance,
-                                        )))
-                                        .await?;
+                                    bids.push(Bid::new(bid[0], bid[1], Exchange::Binance));
                                 }
+                                let mut asks = vec![];
 
                                 for ask in order_book_update.asks.into_iter() {
-                                    price_level_tx
-                                        .send(PriceLevelUpdate::Ask(PriceLevel::new(
-                                            ask[0],
-                                            ask[1],
-                                            Exchange::Binance,
-                                        )))
-                                        .await?;
+                                    asks.push(Ask::new(ask[0], ask[1], Exchange::Binance));
                                 }
+
+                                price_level_tx
+                                    .send(PriceLevelUpdate::new(bids, asks))
+                                    .await?;
                             } else {
                                 return Err(BinanceError::InvalidUpdateId.into());
                             }
@@ -165,25 +156,20 @@ pub async fn spawn_stream_handler(
                     if message.is_empty() {
                         let snapshot = get_order_book_snapshot(&pair, order_book_depth).await?;
 
-                        for bid in snapshot.bids.iter() {
-                            price_level_tx
-                                .send(PriceLevelUpdate::Bid(PriceLevel::new(
-                                    bid[0],
-                                    bid[1],
-                                    Exchange::Binance,
-                                )))
-                                .await?;
+                        let mut bids = vec![];
+
+                        for bid in snapshot.bids.into_iter() {
+                            bids.push(Bid::new(bid[0], bid[1], Exchange::Binance));
+                        }
+                        let mut asks = vec![];
+
+                        for ask in snapshot.asks.into_iter() {
+                            asks.push(Ask::new(ask[0], ask[1], Exchange::Binance));
                         }
 
-                        for ask in snapshot.asks.iter() {
-                            price_level_tx
-                                .send(PriceLevelUpdate::Bid(PriceLevel::new(
-                                    ask[0],
-                                    ask[1],
-                                    Exchange::Binance,
-                                )))
-                                .await?;
-                        }
+                        price_level_tx
+                            .send(PriceLevelUpdate::new(bids, asks))
+                            .await?;
 
                         last_update_id = snapshot.last_update_id;
                     }
@@ -259,7 +245,7 @@ async fn get_order_book_snapshot(
     order_book_depth: usize,
 ) -> Result<OrderBookSnapshot, OrderBookError> {
     let snapshot_endpoint = ORDER_BOOK_SNAPSHOT_BASE_ENDPOINT.to_owned()
-        + &pair
+        + pair
         + "&limit="
         + order_book_depth.to_string().as_str();
 
@@ -278,18 +264,17 @@ async fn get_order_book_snapshot(
 #[cfg(test)]
 mod tests {
     use std::sync::{
-        atomic::{AtomicU32, AtomicU8, Ordering},
+        atomic::{AtomicU32, Ordering},
         Arc,
     };
 
     use crate::exchanges::binance::spawn_order_book_stream;
-    use crate::exchanges::binance::stream::OrderBookUpdate;
+    
     use crate::{
-        exchanges::{binance::Binance, OrderBookService},
-        order_book::{error::OrderBookError, PriceLevel, PriceLevelUpdate},
+        order_book::error::OrderBookError,
     };
     use futures::FutureExt;
-    use tokio::sync::mpsc::Receiver;
+    
 
     //TODO: add a test for order book snapshot
 
@@ -318,7 +303,7 @@ mod tests {
                 }
             }
 
-            return Ok::<(), OrderBookError>(());
+            Ok::<(), OrderBookError>(())
         });
 
         join_handles.push(order_book_stream_handle);
