@@ -872,6 +872,7 @@ dependencies = [
  "serde_with",
  "thiserror",
  "tokio",
+ "tokio-stream",
  "tokio-tungstenite",
  "tonic",
  "tonic-build",
@@ -1942,6 +1943,7 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]
