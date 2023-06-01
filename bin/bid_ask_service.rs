@@ -9,7 +9,7 @@ use kbas::{
     },
     server::{
         self, orderbook_service::orderbook_aggregator_server::OrderbookAggregatorServer,
-        spawn_grpc_server, OrderbookAggregatorService,
+        spawn_grpc_server,
     },
 };
 

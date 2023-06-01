@@ -32,7 +32,6 @@ pub trait OrderBookService {
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
-//TODO: add a note in the walkthrough that the top 10 bids are ordered by exchange preference here
 pub enum Exchange {
     Bitstamp,
     Binance,

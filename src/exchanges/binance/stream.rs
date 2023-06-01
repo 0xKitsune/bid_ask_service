@@ -21,9 +21,6 @@ use tungstenite::Message;
 const WS_BASE_ENDPOINT: &str = "wss://stream.binance.com:9443/ws/";
 const ORDER_BOOK_SNAPSHOT_BASE_ENDPOINT: &str = "https://api.binance.com/api/v3/depth?symbol=";
 const DEPTH_UPDATE_EVENT: &str = "depthUpdate";
-
-//TODO: Add a comment for what this is also there are more efficient ways to do this, update this
-
 const GET_ORDER_BOOK_SNAPSHOT: Vec<u8> = vec![];
 
 // Websocket Market Streams

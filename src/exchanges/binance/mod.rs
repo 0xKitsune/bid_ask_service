@@ -29,13 +29,16 @@ impl OrderBookService for Binance {
         price_level_tx: Sender<PriceLevelUpdate>,
     ) -> Vec<JoinHandle<Result<(), BidAskServiceError>>> {
         let pair = pair.join("");
-        //TODO: add comment to explain why we do this
+        //When subscribing to a stream of order book updates, the pair is required to be formatted as a single string with all lowercase letters
         let stream_pair = pair.to_lowercase();
+        //When getting a snapshot, Binance requires that the pair si a single string with all uppercase letters
         let snapshot_pair = pair.to_uppercase();
 
+        //Spawn a task to handle a buffered stream of the order book and reconnects to the exchange
         let (ws_stream_rx, stream_handle) =
             spawn_order_book_stream(stream_pair, order_book_stream_buffer);
 
+        //Spawn a task to handle updates from the buffered stream, cleaning the data and sending it to the aggregated order book
         let order_book_update_handle = spawn_stream_handler(
             snapshot_pair,
             order_book_depth,
