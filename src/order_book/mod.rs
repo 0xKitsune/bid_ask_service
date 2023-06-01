@@ -256,6 +256,7 @@ mod tests {
         //Wait for the first future to be finished
         let (result, _, _) = futures::future::select_all(futures).await;
 
+        //TODO: update his handling and test
         result.expect("error").expect("errr");
     }
 }
