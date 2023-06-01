@@ -29,7 +29,7 @@ pub mod orderbook_service {
     tonic::include_proto!("orderbookservice");
 }
 
-pub fn spawn_order_book_service(
+pub fn spawn_grpc_server(
     router: Router,
     socket_address: SocketAddr,
 ) -> JoinHandle<Result<(), BidAskServiceError>> {

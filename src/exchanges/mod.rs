@@ -4,6 +4,9 @@ pub mod error;
 pub mod bitstamp;
 pub mod exchange_utils;
 
+use core::fmt;
+use std::str::FromStr;
+
 use async_trait::async_trait;
 use tokio::sync::mpsc::Sender;
 use tokio::task::JoinHandle;
@@ -58,6 +61,17 @@ impl Exchange {
             ),
         }
     }
+
+    pub fn all_exchanges() -> Vec<Exchange> {
+        vec![Exchange::Bitstamp, Exchange::Binance]
+    }
+
+    pub fn parse_exchanges(exchanges: String) -> Result<Vec<Exchange>, ParseExchangeError> {
+        Ok(exchanges
+            .split(',')
+            .map(|s| s.parse::<Exchange>())
+            .collect::<Result<Vec<_>, _>>()?)
+    }
 }
 
 impl ToString for Exchange {
@@ -68,3 +82,28 @@ impl ToString for Exchange {
         }
     }
 }
+
+impl FromStr for Exchange {
+    type Err = ParseExchangeError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "bitstamp" => Ok(Exchange::Bitstamp),
+            "binance" => Ok(Exchange::Binance),
+            _ => Err(ParseExchangeError::UnrecognizedExchange),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum ParseExchangeError {
+    UnrecognizedExchange,
+}
+
+impl fmt::Display for ParseExchangeError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Could not parse the exchange")
+    }
+}
+
+impl std::error::Error for ParseExchangeError {}

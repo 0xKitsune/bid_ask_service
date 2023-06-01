@@ -188,8 +188,6 @@ where
 
                 //TODO: refactor these futures into functions
                 let asks_fut = async {
-                    dbg!("asks");
-
                     let mut update_best_asks = false;
 
                     for ask in price_level_update.asks {
@@ -234,10 +232,7 @@ where
                     }
                 };
 
-                dbg!("joining");
-
                 let (updated_bids, updated_asks) = tokio::join!(bids_fut, asks_fut);
-                dbg!("finished");
 
                 if let Some((best_bids, first, last)) = updated_bids {
                     best_n_bids = best_bids;
@@ -260,6 +255,7 @@ where
                 };
 
                 //TODO: remove this dbg!(&summary);
+                dbg!(&summary);
 
                 summary_tx
                     .send(summary)
