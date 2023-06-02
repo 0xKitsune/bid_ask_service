@@ -8,13 +8,8 @@ use crate::order_book::price_level::PriceLevelUpdate;
 use async_trait::async_trait;
 use tokio::{sync::mpsc::Sender, task::JoinHandle};
 
+#[derive(Default)]
 pub struct Binance;
-
-impl Binance {
-    pub fn new() -> Self {
-        Binance {}
-    }
-}
 
 #[async_trait]
 impl OrderBookService for Binance {

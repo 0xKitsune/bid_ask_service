@@ -12,13 +12,8 @@ use crate::order_book::price_level::PriceLevelUpdate;
 
 use super::OrderBookService;
 
+#[derive(Default)]
 pub struct Bitstamp;
-
-impl Bitstamp {
-    pub fn new() -> Self {
-        Bitstamp {}
-    }
-}
 
 #[async_trait]
 impl OrderBookService for Bitstamp {
