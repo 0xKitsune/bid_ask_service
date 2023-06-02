@@ -1,14 +1,6 @@
 # Keyrock Technical Challenge
 
 
-
-
-
-## TODO:
-- Add more error handling where applicable
-- write writeup
-
-
 ## Notes for post build writeup
 
 ### Structure
