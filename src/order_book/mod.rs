@@ -262,41 +262,66 @@ where
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use std::collections::BTreeSet;
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeSet;
+    use std::sync::atomic::AtomicU32;
+    use std::sync::atomic::Ordering;
+    use std::sync::Arc;
 
-//     use futures::FutureExt;
+    use futures::FutureExt;
 
-//     use crate::order_book::Ask;
-//     use crate::order_book::Bid;
-//     use crate::{exchanges::Exchange, order_book::AggregatedOrderBook};
-//     #[tokio::test]
-//     async fn test_aggregated_order_book() {
-//         let bids = BTreeSet::<Bid>::new();
-//         let asks = BTreeSet::<Ask>::new();
+    use crate::error::BidAskServiceError;
+    use crate::order_book::Ask;
+    use crate::order_book::Bid;
+    use crate::{exchanges::Exchange, order_book::AggregatedOrderBook};
+    #[tokio::test]
+    async fn test_bid_ask_service() {
+        let atomic_counter_0 = Arc::new(AtomicU32::new(0));
+        let atomic_counter_1 = atomic_counter_0.clone();
+        let target_counter = 50;
+        let bids = BTreeSet::<Bid>::new();
+        let asks = BTreeSet::<Ask>::new();
 
-//         let aggregated_order_book = AggregatedOrderBook::new(
-//             ["eth", "btc"],
-//             vec![Exchange::Bitstamp, Exchange::Binance],
-//             bids,
-//             asks,
-//         );
+        let aggregated_order_book = AggregatedOrderBook::new(
+            ["eth", "btc"],
+            vec![Exchange::Bitstamp, Exchange::Binance],
+            bids,
+            asks,
+        );
 
-//         let join_handles = aggregated_order_book
-//             .spawn_bid_ask_service(10, 1000, 100, 20)
-//             .await
-//             .expect("TODO: handle this error");
+        let (tx, mut rx) = tokio::sync::broadcast::channel(100);
 
-//         let futures = join_handles
-//             .into_iter()
-//             .map(|handle| handle.boxed())
-//             .collect::<Vec<_>>();
+        let mut join_handles = aggregated_order_book.spawn_bid_ask_service(10, 1000, 100, 20, tx);
 
-//         //Wait for the first future to be finished
-//         let (result, _, _) = futures::future::select_all(futures).await;
+        let summary_handle = tokio::spawn(async move {
+            while let Ok(_) = rx.recv().await {
+                dbg!(atomic_counter_0.load(Ordering::Relaxed));
+                atomic_counter_0.fetch_add(1, Ordering::Relaxed);
+                if atomic_counter_0.load(Ordering::Relaxed) >= target_counter {
+                    break;
+                }
+            }
 
-//         //TODO: update his handling and test
-//         result.expect("error").expect("errr");
-//     }
-// }
+            Ok::<(), BidAskServiceError>(())
+        });
+
+        join_handles.push(summary_handle);
+
+        let futures = join_handles
+            .into_iter()
+            .map(|handle| handle.boxed())
+            .collect::<Vec<_>>();
+
+        //Wait for the first future to be finished
+        let (result, _, _) = futures::future::select_all(futures).await;
+
+        if atomic_counter_1.load(Ordering::Relaxed) != target_counter {
+            result
+                .expect("Join handle error")
+                .expect("Error when handling WS connection");
+
+            panic!("Unexpected error");
+        }
+    }
+}
