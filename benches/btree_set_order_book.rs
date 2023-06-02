@@ -1,10 +1,6 @@
-use std::{
-    collections::{BTreeSet},
-};
+use std::collections::BTreeSet;
 
-use criterion::{
-    black_box, criterion_group, criterion_main, BatchSize, Criterion,
-};
+use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 use kbas::{
     exchanges::Exchange,
     order_book::{
@@ -14,7 +10,6 @@ use kbas::{
 };
 use ordered_float::OrderedFloat;
 use rand::Rng;
-
 
 fn initialize_bids() -> BTreeSet<Bid> {
     let mut order_book = BTreeSet::<Bid>::new();
@@ -107,6 +102,39 @@ fn bench_update_bid(c: &mut Criterion) {
     });
 }
 
+fn bench_get_best_bid(c: &mut Criterion) {
+    let order_book = initialize_bids();
+
+    c.bench_function("get best bid", |b| {
+        b.iter_batched(
+            || order_book.clone(),
+            |order_book| {
+                order_book
+                    .get_best_bid()
+                    .expect("Could not get best bid")
+                    .clone()
+            },
+            BatchSize::SmallInput,
+        )
+    });
+}
+
+fn bench_get_best_n_bids(c: &mut Criterion) {
+    let order_book = initialize_bids();
+
+    c.bench_function("get best 'n' bids", |b| {
+        b.iter_batched(
+            || {
+                let mut rng = rand::thread_rng();
+                let n = rng.gen_range(0..order_book.len());
+                (n, order_book.clone())
+            },
+            |(n, order_book)| order_book.get_best_n_bids(n),
+            BatchSize::SmallInput,
+        )
+    });
+}
+
 fn create_ask() -> Ask {
     let mut rng = rand::thread_rng();
     let price: f64 = rng.gen_range(80.0..120.0);
@@ -170,21 +198,50 @@ fn bench_update_ask(c: &mut Criterion) {
     });
 }
 
-//TODO: add bench for get best bid/get best ask
+fn bench_get_best_ask(c: &mut Criterion) {
+    let order_book = initialize_asks();
 
-//TODO: also benches for get best n bids, get best n asks
+    c.bench_function("get best ask", |b| {
+        b.iter_batched(
+            || order_book.clone(),
+            |order_book| {
+                order_book
+                    .get_best_ask()
+                    .expect("Could not get best ask")
+                    .clone()
+            },
+            BatchSize::SmallInput,
+        )
+    });
+}
 
-//TODO: also add benches to test updating multiple bids/asks async, vs sync
+fn bench_get_best_n_asks(c: &mut Criterion) {
+    let order_book = initialize_asks();
 
-//TODO: also add benches to test updating the order book as above but with a semaphore
+    c.bench_function("get best 'n' asks", |b| {
+        b.iter_batched(
+            || {
+                let mut rng = rand::thread_rng();
+                let n = rng.gen_range(0..order_book.len());
+                (n, order_book.clone())
+            },
+            |(n, order_book)| order_book.get_best_n_asks(n),
+            BatchSize::SmallInput,
+        )
+    });
+}
 
 criterion_group!(
     benches,
     bench_insert_bid,
     bench_remove_bid,
     bench_update_bid,
+    bench_get_best_bid,
+    bench_get_best_n_bids,
     bench_insert_ask,
     bench_remove_ask,
     bench_update_ask,
+    bench_get_best_ask,
+    bench_get_best_n_asks
 );
 criterion_main!(benches);

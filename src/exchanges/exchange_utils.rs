@@ -7,7 +7,6 @@ use serde::{
 
 #[derive(Debug)]
 struct StringF64ArrayVisitor;
-
 impl<'a> Visitor<'a> for StringF64ArrayVisitor {
     type Value = Vec<[f64; 2]>;
 

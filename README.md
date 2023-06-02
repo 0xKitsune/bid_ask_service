@@ -4,32 +4,17 @@
 
 
 
-
-
-
-
-
-## TODO: for tonight:
-- test feed all of the updates to the aggregated order book 
-- add tests for ask order book order
-- 
-- think through how to cache the top 10 bids/asks and the spread
-- gRPC server
-
-
-
-
-
-
-### Notes:
-- TODO: work on order book structures, handle concurrency where it makes sense
-- make some notes highlighting the importance of the ord trait for bid and ask
-- look at updating the order book trait to return the top 10 values in bid or ask? or an option if it hasnt changed? 
-- Also there should be a depth limit
+## TODO:
+- Add more error handling where applicable
+- write writeup
 
 
 ## Notes for post build writeup
 
+### Structure
+- Overview, table of contents and hot links to adding an excchange, adding a new order book, upgrades reflection sections (and whatever else makes sense)
+
 ### Reflection Section/ What I would change
 - Concurrency model to use mutexes instead of channels for exchange/order book communication
 - The Bid/Ask Ord trait
+- Logging, right now it writes often and could be to a database instead
