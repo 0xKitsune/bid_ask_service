@@ -1,9 +1,6 @@
-use std::{
-    cmp::Ordering,
-};
+use std::cmp::Ordering;
 
-use ordered_float::{OrderedFloat};
-
+use ordered_float::OrderedFloat;
 
 use crate::{exchanges::Exchange, order_book::Order};
 
@@ -88,10 +85,7 @@ impl Ord for Ask {
 #[cfg(test)]
 mod tests {
 
-    use crate::{
-        exchanges::Exchange,
-        order_book::{Ask},
-    };
+    use crate::{exchanges::Exchange, order_book::Ask};
 
     #[test]
     pub fn test_ask_less() {
@@ -130,6 +124,15 @@ mod tests {
         let ask_11 = Ask::new(1.20, 1000.56, Exchange::Binance);
 
         assert!(ask_11.cmp(&ask_10).is_lt());
+
+        //the price and quantity are the same but the exchange is different
+        //the price and quantity are the same but the exchange is different
+        //Note that when the price and the quantity are the same but the exchange is different, the comparison is always less than.
+        //For a more detailed explanation, visit the Ord implementation for Bid
+        let ask_12 = Ask::new(1.20, 1000.56, Exchange::Binance);
+        let ask_13 = Ask::new(1.20, 1000.56, Exchange::Bitstamp);
+
+        assert!(ask_12.cmp(&ask_13).is_lt());
     }
 
     #[test]
@@ -157,12 +160,6 @@ mod tests {
         let ask_7 = Ask::new(1.20, 1300.56, Exchange::Binance);
 
         assert!(ask_6.cmp(&ask_7).is_gt());
-
-        //the price and quantity are the same but the exchange is different
-        let ask_8 = Ask::new(1.20, 1000.56, Exchange::Bitstamp);
-        let ask_9 = Ask::new(1.20, 1000.56, Exchange::Binance);
-
-        assert!(ask_8.cmp(&ask_9).is_gt());
     }
 
     #[test]

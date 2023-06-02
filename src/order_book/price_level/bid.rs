@@ -1,9 +1,6 @@
-use std::{
-    cmp::Ordering,
-};
+use std::cmp::Ordering;
 
-use ordered_float::{OrderedFloat};
-
+use ordered_float::OrderedFloat;
 
 use crate::{exchanges::Exchange, order_book::Order};
 
@@ -83,10 +80,7 @@ impl Ord for Bid {
 #[cfg(test)]
 mod tests {
 
-    use crate::{
-        exchanges::Exchange,
-        order_book::{Bid},
-    };
+    use crate::{exchanges::Exchange, order_book::Bid};
 
     #[test]
     pub fn test_bid_greater() {
@@ -111,12 +105,6 @@ mod tests {
         let bid_8 = Bid::new(1.23, 1000.56, Exchange::Binance);
         let bid_9 = Bid::new(1.20, 1200.56, Exchange::Bitstamp);
         assert!(bid_8.cmp(&bid_9).is_gt());
-
-        //the price and quantity are the same but the exchange is different
-        let bid_10 = Bid::new(1.20, 1000.56, Exchange::Binance);
-        let bid_11 = Bid::new(1.20, 1000.56, Exchange::Bitstamp);
-
-        assert!(bid_10.cmp(&bid_11).is_gt());
     }
 
     #[test]
@@ -150,6 +138,14 @@ mod tests {
         let bid_11 = Bid::new(1.20, 1000.56, Exchange::Bitstamp);
 
         assert!(bid_11.cmp(&bid_10).is_lt());
+
+        //the price and quantity are the same but the exchange is different
+        //Note that when the price and the quantity are the same but the exchange is different, the comparison is always less than.
+        //For a more detailed explanation, visit the Ord implementation for Bid
+        let bid_12 = Bid::new(1.20, 1000.56, Exchange::Bitstamp);
+        let bid_13 = Bid::new(1.20, 1000.56, Exchange::Binance);
+
+        assert!(bid_13.cmp(&bid_12).is_lt());
     }
     #[test]
     pub fn test_bid_equal() {
