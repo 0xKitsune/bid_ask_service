@@ -61,6 +61,8 @@ async fn test_bid_ask_service() {
         result
             .expect("Join handle error")
             .expect("Error when handling gRPC stream");
+
+        panic!("Unexpected error");
     }
 }
 

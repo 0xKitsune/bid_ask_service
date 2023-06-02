@@ -329,6 +329,8 @@ mod tests {
             result
                 .expect("Join handle error")
                 .expect("Error when handling WS connection");
+
+            panic!("Unexpected error");
         }
     }
 }
