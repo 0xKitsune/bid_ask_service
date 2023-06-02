@@ -1,7 +1,7 @@
 # Bid Ask Service
 
 
-**Bid Ask Service** is a Rust program designed to aggregate real-time orderbook data from multiple CeFi exchanges in order to publish the bid-ask spread, top 10 bids and top 10 asks via a gRPC server.  
+**Bid Ask Service** is a Rust program designed to aggregate real-time orderbook data from multiple CeFi exchanges in order to publish the bid-ask spread, top `n` bids and top `n` asks via a gRPC server.  
 
 This document provides a step-by-step guide on how to install/run the program, add a new exchange, and add different types of order books. The system is designed to be modular so that you can add new exchanges without changing any of the core logic.  This document also contains a robust code walkthrough and a post build reflection detailing thoughts, upgrades and improvements to the current codebase. If you would like to jump to any of these sections, feel free to use the table of contents below.
 
