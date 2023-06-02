@@ -10,10 +10,10 @@ This document provides a step-by-step guide on how to install/run the program, a
 
 1. [Installing](#installing)
 2. [Usage](#usage)
-3. [Adding a New Exchange](docs/add_an_exchange.md)
-4. [Adding a New Orderbook](docs/add_an_exchange.md)
-5. [Code Walkthrough](#walkthrough)
+3. [Code Walkthrough](#walkthrough)
 6. [Reflections](#reflections)
+4. [Adding a New Exchange](docs/add_an_exchange.md)
+5. [Adding a New Orderbook](docs/add_an_exchange.md)
 
 
 ## Installing 
@@ -24,6 +24,25 @@ git clone https://github.com/0xKitsune/bid_ask_service
 cd bid_ask_service
 cargo install --path .
 ```
+
+Since this program uses a gRPC server to stream aggregated order book updates to clients, you will also need to install the `protoc` Protocol Buffers compiler, along with Protocol Buffers resource files.
+### Ubuntu
+```
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y protobuf-compiler libprotobuf-dev
+```
+### Alpine Linux
+```
+sudo apk add protoc protobuf-dev
+```
+### macOS
+Assuming Homebrew is already installed. (If not, see instructions for installing Homebrew on the Homebrew website.)
+
+```
+brew install protobuf
+```
+
+With that out of the way, you are ready to run the program!
 
 ## Usage
 
