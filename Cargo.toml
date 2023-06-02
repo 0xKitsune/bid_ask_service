@@ -1,5 +1,5 @@
 [package]
-name = "kbas"
+name = "bid_ask_service"
 version = "0.1.0"
 edition = "2021"
 
@@ -36,7 +36,7 @@ rand = "0.8.5"
 
 
 [[bin]]
-name = "bid_ask_spread"
+name = "bid_ask_service"
 path = "bin/bid_ask_service.rs"
 
 
