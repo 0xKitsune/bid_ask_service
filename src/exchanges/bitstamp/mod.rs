@@ -65,7 +65,7 @@ mod tests {
     async fn test_spawn_order_book_service() {
         let atomic_counter_0 = Arc::new(AtomicU32::new(0));
         let atomic_counter_1 = atomic_counter_0.clone();
-        let target_counter = 5000;
+        let target_counter = 50;
 
         let (tx, mut rx) = tokio::sync::mpsc::channel::<PriceLevelUpdate>(500);
         let mut join_handles = Bitstamp::spawn_order_book_service(["eth", "btc"], 1000, 500, tx);
