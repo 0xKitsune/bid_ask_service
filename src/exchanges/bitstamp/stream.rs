@@ -212,11 +212,6 @@ impl SubscribeMessage {
 #[derive(Debug, Deserialize)]
 pub struct OrderBookSnapshot {
     #[serde(
-        rename = "timestamp",
-        deserialize_with = "exchange_utils::convert_from_string_to_u64"
-    )]
-    timestamp: u64,
-    #[serde(
         rename = "microtimestamp",
         deserialize_with = "exchange_utils::convert_from_string_to_u64"
     )]
@@ -247,7 +242,7 @@ pub struct OrderBookUpdate {
 #[derive(Deserialize, Debug)]
 pub struct OrderBookUpdateData {
     #[serde(
-        rename = "timestamp",
+        rename = "microtimestamp",
         deserialize_with = "exchange_utils::convert_from_string_to_u64"
     )]
     microtimestamp: u64,
