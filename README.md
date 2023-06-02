@@ -15,6 +15,10 @@ This document provides a step-by-step guide on how to install/run the program, a
 5. [Adding a New Orderbook](docs/add_an_exchange.md)
 
 
+
+
+<br>
+
 ## Installing 
 
 Installing the program is quick and easy. First, make sure that you have [Rust installed](https://www.rust-lang.org/tools/install). Once you have Rust installed, you can run the following commands to install the Bid-Ask Service from source.
@@ -42,6 +46,10 @@ brew install protobuf
 ```
 
 With that out of the way, you are ready to run the program!
+
+
+<br>
+
 
 ## Usage
 
