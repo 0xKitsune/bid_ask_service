@@ -1,5 +1,6 @@
 use std::{collections::BTreeSet, error::Error};
 
+use futures::FutureExt;
 use kbas::{
     exchanges::Exchange,
     order_book::{
@@ -8,58 +9,111 @@ use kbas::{
     },
     server::{
         self, orderbook_service::orderbook_aggregator_server::OrderbookAggregatorServer,
-        spawn_order_book_aggregator_service, OrderbookAggregatorService,
+        spawn_grpc_server,
     },
 };
+
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[clap(name = "Bid ask service")]
+struct Opts {
+    /// List of exchanges, separated by commas
+    #[clap(long, short)]
+    exchanges: Option<String>,
+
+    /// Summary buffer size
+    #[clap(long, default_value = "300")]
+    summary_buffer: usize,
+
+    /// Trading pair
+    #[clap(long, short)]
+    pair: String,
+
+    /// The max depth of the aggregated order book
+    #[clap(long, default_value = "25")]
+    order_book_depth: usize,
+
+    /// Size of best orders
+    #[clap(long, default_value = "10")]
+    best_n_orders: usize,
+
+    /// Order book stream buffer size
+    #[clap(long, default_value = "100")]
+    order_book_stream_buffer: usize,
+
+    ///
+    #[clap(long, default_value = "100")]
+    price_level_channel_buffer: usize,
+
+    /// Socket address for the gRPC server
+    #[clap(long, default_value = "[::1]:50051")]
+    socket_address: String,
+}
+
 use tonic::transport::Server;
 
-pub const PRICE_LEVEL_CHANNEL_BUFFER: usize = 100;
-
-//TODO: add clap and parse args to determine which exchanges, which order book variant, log file, etc
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
-    let default_exchanges = vec![Exchange::Binance, Exchange::Bitstamp];
+async fn main() -> eyre::Result<()> {
+    //Parse the command line args, extract the exchanges and the pair
+    let opts = Opts::parse();
 
-    //TODO: add the summary buffer as a clap arg
-    let (order_book_aggregator_service, summary_tx) = server::OrderbookAggregatorService::new(300);
+    let exchanges = if let Some(values) = opts.exchanges {
+        Exchange::parse_exchanges(values)?
+    } else {
+        Exchange::all_exchanges()
+    };
+
+    let tickers = opts
+        .pair
+        .split(",")
+        .map(|s| s.replace(" ", "").to_lowercase())
+        .collect::<Vec<String>>();
+
+    let pair: [&str; 2] = [&tickers[0], &tickers[1]];
+
+    //Create a new orderbook aggregator service and build the gRPC server
+    let (order_book_aggregator_service, summary_tx) =
+        server::OrderbookAggregatorService::new(opts.summary_buffer);
     let router = Server::builder().add_service(OrderbookAggregatorServer::new(
         order_book_aggregator_service,
     ));
-    let socket_addr = "[::1]:50051".parse()?;
 
-    //TODO: add the pair as a clap arg
-
-    let pair = ["", ""];
-
-    //TODO: add the depth as a clap arg
-
-    let order_book_depth = 10;
-    //TODO: add the order book stream buffer as a clap arg
-
-    let order_book_stream_buffer = 100;
-
+    //Initialize a new aggregated orderbook, specifying the data structure to represent the bids and asks
     let aggregated_order_book = AggregatedOrderBook::new(
         pair,
-        default_exchanges,
+        exchanges,
         BTreeSet::<Bid>::new(),
         BTreeSet::<Ask>::new(),
     );
 
-    // aggregated_order_book
-    //     .spawn_bid_ask_service(
-    //         order_book_depth,
-    //         order_book_stream_buffer,
-    //         PRICE_LEVEL_CHANNEL_BUFFER,
-    //     )
-    //     .await?;
+    //Spawn the bid ask service from the orderbook and the gRPC server
+    let mut join_handles = vec![];
+    join_handles.extend(aggregated_order_book.spawn_bid_ask_service(
+        opts.order_book_depth,
+        opts.order_book_stream_buffer,
+        opts.price_level_channel_buffer,
+        opts.best_n_orders,
+        summary_tx,
+    ));
 
-    //TODO: initializes the exchanges we want, grabs the order book that we want, uses all of this to spin up the aggregated order book
+    join_handles.push(spawn_grpc_server(router, opts.socket_address.parse()?));
 
-    //TODO: spawns the aggregated order book, returns the rx
+    //Collect all of the join handles and await the futures to handle any errors
+    let futures = join_handles
+        .into_iter()
+        .map(|handle| handle.boxed())
+        .collect::<Vec<_>>();
 
-    //TODO: spawn the grpc server, passes in the rx, this triggers any listeners to be served whenever an rx comes through
+    let (future_result, _, _) = futures::future::select_all(futures).await;
 
-    //TODO: rename this function
-    let service_handle = spawn_order_book_aggregator_service(router, socket_addr);
-    Ok(())
+    match future_result {
+        Ok(task_result) => match task_result {
+            Ok(_) => {
+                eyre::bail!("Program exited unexpectedly");
+            }
+            Err(e) => Err(eyre::Report::new(e)),
+        },
+        Err(join_error) => Err(eyre::Report::new(join_error)),
+    }
 }

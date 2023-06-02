@@ -20,18 +20,25 @@ use tonic::transport::server::Router;
 use tonic::transport::Server;
 use tonic::{Request, Response, Status, Streaming};
 
+use crate::error::BidAskServiceError;
+
+use self::error::ServerError;
+
 pub mod orderbook_service {
 
     tonic::include_proto!("orderbookservice");
 }
 
-pub fn spawn_order_book_aggregator_service(
+pub fn spawn_grpc_server(
     router: Router,
     socket_address: SocketAddr,
-) -> JoinHandle<Result<(), tonic::transport::Error>> {
+) -> JoinHandle<Result<(), BidAskServiceError>> {
     let handle = tokio::spawn(async move {
-        router.serve(socket_address).await?;
-        Ok::<_, tonic::transport::Error>(())
+        router
+            .serve(socket_address)
+            .await
+            .map_err(ServerError::TransportError)?;
+        Ok::<_, BidAskServiceError>(())
     });
 
     handle
