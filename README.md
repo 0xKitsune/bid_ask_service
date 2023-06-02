@@ -10,8 +10,7 @@ This document provides a step-by-step guide on how to install/run the program, a
 
 1. [Installing](#installing)
 2. [Usage](#usage)
-3. [Code Walkthrough](#walkthrough)
-6. [Reflections](#reflections)
+3. [Code Walkthrough/Reflections](docs/walkthrough.md)
 4. [Adding a New Exchange](docs/add_an_exchange.md)
 5. [Adding a New Orderbook](docs/add_an_exchange.md)
 
@@ -46,11 +45,35 @@ With that out of the way, you are ready to run the program!
 
 ## Usage
 
-## Walkthrough
+The Bid Ask Service is configurable via command-line arguments. Here's a rundown of each option:
 
-## Reflections 
+- `--exchanges, -e`: Specifies the list of exchanges the service should connect to. They should be separated by commas. For example, if you wanted to connect t Binance and Bitstamp, you would specify `--exchanges binance,bitstamp`.
 
-## Notes for post build writeup
+- `--summary_buffer`: Sets the buffer size for the tokio broadcast channel used to stream the aggregated order book to the gRPC server. The default size is 300.
+
+- `--pair, -p`: Specifies the trading pair to listen to updates. Trading pairs should be separated by commas. For example, if you wanted to listen to updates for the ETH/BTC pairing, you would specify `--pair eth,btc`.
+
+- `--order_book_depth`: Determines the max depth of the aggregated order book. This specifies the maximum amount of bids or asks the book will hold. For example, if the depth is set to 20, there will be a maximum of 20 bids and 20 asks in the orderbook. The default depth is 25.
+
+- `--best_n_orders`: Determines the number of best bids and asks to stream via the gRPC server. The default number is 10.
+
+- `--exchange_stream_buffer`: Sets the channel buffer size for streaming live order book data from exchanges. The default size is 100.
+
+- `--price_level_channel_buffer`: Sets the channel buffer size to pass the price level updates from the exchange module to the aggregated order book. The default size is 100.
+
+- `--socket_address`: Specifies the socket address for the gRPC server. The default address is `[::1]:50051`.
+
+- `--level`: Sets the level of logging. The options are trace, debug, info, warn, and error. The default level is info.
+
+- `--log_file_path`: Specifies the path to the output file for logging. The default path is `output.log`.
+
+
+
+Here is an example showing how to use the command line arguments together.
+```bash
+bid_ask_service --exchanges binance,bitstamp --pair eth,btc --order_book_depth 50 --best_n_orders 20 --level info --log_file_path my_log.log
+```
+
 
 ### Structure
 - Overview, table of contents and hot links to adding an excchange, adding a new order book, upgrades reflection sections (and whatever else makes sense)
