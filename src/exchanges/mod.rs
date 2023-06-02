@@ -26,7 +26,7 @@ pub trait OrderBookService {
     fn spawn_order_book_service(
         pair: [&str; 2],
         order_book_depth: usize,
-        order_book_stream_buffer: usize,
+        exchange_stream_buffer: usize,
         price_level_tx: Sender<PriceLevelUpdate>,
     ) -> Vec<JoinHandle<Result<(), BidAskServiceError>>>;
 }
@@ -42,20 +42,20 @@ impl Exchange {
         &self,
         pair: [&str; 2],
         order_book_depth: usize,
-        order_book_stream_buffer: usize,
+        exchange_stream_buffer: usize,
         price_level_tx: Sender<PriceLevelUpdate>,
     ) -> Vec<JoinHandle<Result<(), BidAskServiceError>>> {
         match self {
             Exchange::Binance => Binance::spawn_order_book_service(
                 pair,
                 order_book_depth,
-                order_book_stream_buffer,
+                exchange_stream_buffer,
                 price_level_tx,
             ),
             Exchange::Bitstamp => Bitstamp::spawn_order_book_service(
                 pair,
                 order_book_depth,
-                order_book_stream_buffer,
+                exchange_stream_buffer,
                 price_level_tx,
             ),
         }

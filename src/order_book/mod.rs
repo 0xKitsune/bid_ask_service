@@ -86,7 +86,7 @@ where
     pub fn spawn_bid_ask_service(
         &self,
         max_order_book_depth: usize,
-        order_book_stream_buffer: usize,
+        exchange_stream_buffer: usize,
         price_level_buffer: usize,
         best_n_orders: usize,
 
@@ -102,7 +102,7 @@ where
             handles.extend(exchange.spawn_order_book_service(
                 [&self.pair[0], &self.pair[1]],
                 max_order_book_depth,
-                order_book_stream_buffer,
+                exchange_stream_buffer,
                 price_level_tx.clone(),
             ))
         }

@@ -1,16 +1,12 @@
 pub mod error;
 mod stream;
 
-use crate::order_book::price_level::PriceLevelUpdate;
-use crate::{error::BidAskServiceError, order_book::error::OrderBookError};
-
-use async_trait::async_trait;
-
-use tokio::{sync::mpsc::Sender, task::JoinHandle};
-
 use self::stream::{spawn_order_book_stream, spawn_stream_handler};
-
 use super::OrderBookService;
+use crate::error::BidAskServiceError;
+use crate::order_book::price_level::PriceLevelUpdate;
+use async_trait::async_trait;
+use tokio::{sync::mpsc::Sender, task::JoinHandle};
 
 pub struct Binance;
 
@@ -25,7 +21,7 @@ impl OrderBookService for Binance {
     fn spawn_order_book_service(
         pair: [&str; 2],
         order_book_depth: usize,
-        order_book_stream_buffer: usize,
+        exchange_stream_buffer: usize,
         price_level_tx: Sender<PriceLevelUpdate>,
     ) -> Vec<JoinHandle<Result<(), BidAskServiceError>>> {
         let pair = pair.join("");
@@ -36,7 +32,7 @@ impl OrderBookService for Binance {
 
         //Spawn a task to handle a buffered stream of the order book and reconnects to the exchange
         let (ws_stream_rx, stream_handle) =
-            spawn_order_book_stream(stream_pair, order_book_stream_buffer);
+            spawn_order_book_stream(stream_pair, exchange_stream_buffer);
 
         //Spawn a task to handle updates from the buffered stream, cleaning the data and sending it to the aggregated order book
         let order_book_update_handle = spawn_stream_handler(
@@ -60,7 +56,7 @@ mod tests {
     use crate::{
         error::BidAskServiceError,
         exchanges::{binance::Binance, OrderBookService},
-        order_book::{error::OrderBookError, price_level::PriceLevelUpdate},
+        order_book::price_level::PriceLevelUpdate,
     };
     use futures::FutureExt;
 

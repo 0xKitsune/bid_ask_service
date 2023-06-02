@@ -18,15 +18,15 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[clap(name = "Bid ask service")]
 struct Opts {
-    /// List of exchanges, separated by commas
+    /// List of exchanges, separated by commas, ie. binance,bitstamp
     #[clap(long, short)]
     exchanges: Option<String>,
 
-    /// Summary buffer size
+    /// Channel buffer size for the tokio broadcast channel used to stream the aggregated order book to the gRPC server
     #[clap(long, default_value = "300")]
     summary_buffer: usize,
 
-    /// Trading pair
+    /// Trading pair to listen to updates to separated by commas, ie. eth,btc
     #[clap(long, short)]
     pair: String,
 
@@ -34,15 +34,15 @@ struct Opts {
     #[clap(long, default_value = "25")]
     order_book_depth: usize,
 
-    /// Size of best orders
+    /// The number of best bids and asks to stream via the gRPC server
     #[clap(long, default_value = "10")]
     best_n_orders: usize,
 
-    /// Order book stream buffer size
+    /// Channel buffer size for streaming live order book data from exchanges
     #[clap(long, default_value = "100")]
-    order_book_stream_buffer: usize,
+    exchange_stream_buffer: usize,
 
-    ///
+    /// Channel buffer size to pass the price level updates from the exchange module to the aggregated order book
     #[clap(long, default_value = "100")]
     price_level_channel_buffer: usize,
 
@@ -91,7 +91,7 @@ async fn main() -> eyre::Result<()> {
     let mut join_handles = vec![];
     join_handles.extend(aggregated_order_book.spawn_bid_ask_service(
         opts.order_book_depth,
-        opts.order_book_stream_buffer,
+        opts.exchange_stream_buffer,
         opts.price_level_channel_buffer,
         opts.best_n_orders,
         summary_tx,

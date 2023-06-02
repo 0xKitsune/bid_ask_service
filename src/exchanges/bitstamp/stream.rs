@@ -61,13 +61,13 @@ impl SubscriptionData {
 
 pub fn spawn_order_book_stream(
     pair: String,
-    order_book_stream_buffer: usize,
+    exchange_stream_buffer: usize,
 ) -> (
     Receiver<Message>,
     JoinHandle<Result<(), BidAskServiceError>>,
 ) {
     let (ws_stream_tx, ws_stream_rx) =
-        tokio::sync::mpsc::channel::<Message>(order_book_stream_buffer);
+        tokio::sync::mpsc::channel::<Message>(exchange_stream_buffer);
 
     //spawn a thread that handles the stream and buffers the results
     let stream_handle = tokio::spawn(async move {
