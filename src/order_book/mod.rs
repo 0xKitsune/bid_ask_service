@@ -1,7 +1,6 @@
-use std::{fmt::Debug, pin::Pin, sync::Arc};
+use std::{fmt::Debug, sync::Arc};
 
 use async_trait::async_trait;
-use futures::Future;
 use ordered_float::OrderedFloat;
 use tokio::{
     sync::{broadcast::Sender, mpsc::Receiver, Mutex},
@@ -22,17 +21,6 @@ pub mod btree_set;
 pub mod error;
 pub mod price_level;
 
-//TODO: add a variant of the order book data structure where the order book will have a hashmap for quick update/removal
-
-//TODO: if you want to read the order book, you will need this to be send/sync, if you just want updates from a channel you dont need this
-
-//TODO: second off, this makes things a little bit easier, allowing you to have a rbtree or avl tree or other intrusive collection, without it needing to be thread safe
-
-//TODO: add comment where it explains this represents the buy and sell side
-
-//TODO: would need to implement order on bid and ask
-
-//TODO: FIXME: we might still need this
 pub trait Order: Ord {
     fn get_price(&self) -> &OrderedFloat<f64>;
     fn get_quantity(&self) -> &OrderedFloat<f64>;
@@ -74,6 +62,7 @@ where
     B: BuySide + Send + 'static,
     S: SellSide + Send + 'static,
 {
+    /// Creates a new instance of AggregatedOrderBook with the specified pair, exchanges, bids, and asks.
     pub fn new(pair: [&str; 2], exchanges: Vec<Exchange>, bids: B, asks: S) -> Self {
         AggregatedOrderBook {
             pair: [pair[0].to_string(), pair[1].to_string()],
@@ -83,21 +72,21 @@ where
         }
     }
 
+    /// Spawns the bid-ask service for the order book, with the specified configurations and channels,
+    /// returning a vec of join handles for each exchange service and orderbook update logic
     pub fn spawn_bid_ask_service(
         &self,
         max_order_book_depth: usize,
         exchange_stream_buffer: usize,
         price_level_buffer: usize,
         best_n_orders: usize,
-
         summary_tx: Sender<Summary>,
     ) -> Vec<JoinHandle<Result<(), BidAskServiceError>>> {
-        //TODO: add some error for when the best order depth is greater than the max order book depth
-
         let (price_level_tx, price_level_rx) =
             tokio::sync::mpsc::channel::<PriceLevelUpdate>(price_level_buffer);
         let mut handles = vec![];
 
+        //Spawn the order book service for each exchange, handling order book updates and sending them to the aggregated order book
         for exchange in self.exchanges.iter() {
             handles.extend(exchange.spawn_order_book_service(
                 [&self.pair[0], &self.pair[1]],
@@ -107,7 +96,7 @@ where
             ))
         }
 
-        //Refactor this into one function
+        //Handle order book updates from the exchange streams, aggregating the order book and sending the summary to the gRPC server
         handles.push(self.handle_order_book_updates(
             price_level_rx,
             max_order_book_depth,
@@ -118,7 +107,6 @@ where
         handles
     }
 
-    //TODO: will need to update this error so that all futures can be joined
     pub fn handle_order_book_updates(
         &self,
         mut price_level_rx: Receiver<PriceLevelUpdate>,
@@ -129,19 +117,20 @@ where
         let bids = self.bids.clone();
         let asks = self.asks.clone();
         tokio::spawn(async move {
+            //Track of the first bid and the first ask to calculate the spread
             let mut first_bid = Bid::default();
-            let mut best_n_bids: Vec<Level> = vec![];
-            let mut last_bid = Bid::default();
-
             let mut first_ask = Ask::default();
+
+            //Track of the best n bids and asks to send to the gRPC server
+            let mut best_n_bids: Vec<Level> = vec![];
             let mut best_n_asks: Vec<Level> = vec![];
+
+            //Track the last bid and ask to determine if the best n bids and asks need to be updated when a new bid/ask comes in
+            let mut last_bid = Bid::default();
             let mut last_ask = Ask::default();
-            dbg!("waiting");
 
             while let Some(price_level_update) = price_level_rx.recv().await {
                 let bids_fut = async {
-                    dbg!("bids");
-
                     //Add each bid to the aggregated order book, checking if the bid is better than the "worst" bid in the top n bids
                     let mut update_best_bids = false;
                     for bid in price_level_update.bids {
@@ -157,6 +146,7 @@ where
                         if let Some(_) = &best_bids[0] {
                             let mut best_n_levels = vec![];
 
+                            //Get the best "n" bids and add the level to the best n levels
                             let mut last_bid = 0;
                             for bid_option in best_bids.iter() {
                                 if let Some(bid) = bid_option {
@@ -172,6 +162,7 @@ where
                                 }
                             }
 
+                            //Return the best levels, the first bid, and the last bid
                             Some((
                                 best_n_levels,
                                 best_bids[0].take().unwrap(),
@@ -186,7 +177,6 @@ where
                     }
                 };
 
-                //TODO: refactor these futures into functions
                 let asks_fut = async {
                     let mut update_best_asks = false;
 
@@ -197,12 +187,14 @@ where
                         asks.lock().await.update_asks(ask, max_order_book_depth);
                     }
 
+                    //If the ask is better than the "worst" ask in the top asks, update the best n bids
                     if update_best_asks {
                         let mut best_asks = asks.lock().await.get_best_n_asks(best_n_orders);
 
                         if let Some(_) = &best_asks[0] {
                             let mut best_n_levels = vec![];
 
+                            //Get the best "n" asks and add the level to the best n levels
                             let mut last_ask = 0;
                             for ask_option in best_asks.iter() {
                                 if let Some(ask) = ask_option {
@@ -218,6 +210,7 @@ where
                                 }
                             }
 
+                            //Return the best levels, the first ask, and the last ask
                             Some((
                                 best_n_levels,
                                 best_asks[0].take().unwrap(),
@@ -232,20 +225,24 @@ where
                     }
                 };
 
+                //Join the futures so that the bids and asks can be updated concurrently
                 let (updated_bids, updated_asks) = tokio::join!(bids_fut, asks_fut);
 
+                //Update the best n bids and asks if they have been updated
                 if let Some((best_bids, first, last)) = updated_bids {
                     best_n_bids = best_bids;
                     first_bid = first;
                     last_bid = last;
                 }
 
+                //Update the best n asks and asks if they have been updated
                 if let Some((best_asks, first, last)) = updated_asks {
                     best_n_asks = best_asks;
                     first_ask = first;
                     last_ask = last;
                 }
 
+                //Calculate the bid-ask spread and send the updated summary to the gRPC server
                 let bid_ask_spread = first_ask.price.0 - first_bid.price.0;
 
                 let summary = Summary {
@@ -253,9 +250,6 @@ where
                     bids: best_n_bids.clone(),
                     asks: best_n_asks.clone(),
                 };
-
-                //TODO: remove this dbg!(&summary);
-                dbg!(&summary);
 
                 summary_tx
                     .send(summary)
