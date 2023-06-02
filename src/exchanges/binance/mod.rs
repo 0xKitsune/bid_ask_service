@@ -30,10 +30,12 @@ impl OrderBookService for Binance {
         //When getting a snapshot, Binance requires that the pair si a single string with all uppercase letters
         let snapshot_pair = pair.to_uppercase();
 
+        tracing::info!("Spawning Binance order book stream");
         //Spawn a task to handle a buffered stream of the order book and reconnects to the exchange
         let (ws_stream_rx, stream_handle) =
             spawn_order_book_stream(stream_pair, exchange_stream_buffer);
 
+        tracing::info!("Spawning Binance order book stream handler");
         //Spawn a task to handle updates from the buffered stream, cleaning the data and sending it to the aggregated order book
         let order_book_update_handle = spawn_stream_handler(
             snapshot_pair,

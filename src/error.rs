@@ -1,9 +1,5 @@
-use log::SetLoggerError;
-
 use crate::{
-    exchanges::{
-        binance::error::BinanceError, bitstamp::error::BitstampError, error::ExchangeError,
-    },
+    exchanges::{binance::error::BinanceError, bitstamp::error::BitstampError},
     order_book::error::OrderBookError,
     server::error::ServerError,
 };

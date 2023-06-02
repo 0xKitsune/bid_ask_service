@@ -5,8 +5,9 @@
 
 
 ## TODO:
-- address all todos
 - Add logging 
+- address all todos
+- update first bid and ask to just be a price to calc the spread or just store the spread and pass the first bid and ask price
 - Add more error handling where applicable
 - write writeup
 

@@ -1,5 +1,4 @@
-use std::{collections::BTreeSet, error::Error, str::FromStr};
-
+use clap::Parser;
 use futures::FutureExt;
 use kbas::{
     exchanges::Exchange,
@@ -12,13 +11,10 @@ use kbas::{
         spawn_grpc_server,
     },
 };
-
+use std::collections::BTreeSet;
 use tonic::transport::Server;
-
-use clap::{Args, Parser};
-use tracing::{metadata::LevelFilter, Subscriber};
-use tracing_appender::non_blocking::{NonBlocking, WorkerGuard};
-use tracing_subscriber::fmt::format::{Compact, DefaultFields, Format};
+use tracing_appender::non_blocking::WorkerGuard;
+use tracing_subscriber::fmt::format::Format;
 
 #[derive(Parser, Debug)]
 #[clap(name = "Bid ask service")]

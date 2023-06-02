@@ -80,12 +80,12 @@ pub fn spawn_order_book_stream(
                     }
 
                     tungstenite::Message::Close(_) => {
-                        tracing::error!("Ws connection closed, reconnecting...");
+                        tracing::warn!("Ws connection closed, reconnecting...");
                         break;
                     }
 
                     other => {
-                        log::warn!("{other:?}");
+                        tracing::warn!("{other:?}");
                     }
                 }
             }
@@ -117,8 +117,7 @@ pub fn spawn_stream_handler(
                             .map_err(BinanceError::SerdeJsonError)?;
 
                         if order_book_update.final_updated_id <= last_update_id {
-                            //TODO: potentially add some error logging here
-
+                            tracing::warn!("Update id is <= last update id");
                             continue;
                         } else {
                             if order_book_update.first_update_id <= last_update_id + 1
@@ -152,6 +151,7 @@ pub fn spawn_stream_handler(
                     // This is an internal message signifying that the stream has reconnected so we need to get a snapshot
                     // First get a snapshot of the order book, handle all of the bids/asks and send it through the channel to the aggregated orderbook
                     if message.is_empty() {
+                        tracing::info!("Getting order book snapshot");
                         let snapshot = get_order_book_snapshot(&pair, order_book_depth).await?;
 
                         let mut bids = vec![];

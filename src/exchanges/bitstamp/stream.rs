@@ -11,6 +11,7 @@ use tokio::{
     sync::mpsc::{Receiver, Sender},
     task::JoinHandle,
 };
+use tracing::trace;
 use tungstenite::Message;
 
 use crate::{exchanges::bitstamp::error::BitstampError, order_book::error::OrderBookError};
@@ -79,12 +80,12 @@ pub fn spawn_order_book_stream(
                     }
 
                     tungstenite::Message::Close(_) => {
-                        tracing::error!("Ws connection closed, reconnecting...");
+                        tracing::warn!("Ws connection closed, reconnecting...");
                         break;
                     }
 
                     other => {
-                        log::warn!("{other:?}");
+                        tracing::warn!("{other:?}");
                     }
                 }
             }
@@ -119,7 +120,7 @@ pub fn spawn_stream_handler(
                         // If the microtimestamp of the order book data is not newer than the last microtimestamp we skip
                         //processing it and continue with the next message
                         if order_book_data.microtimestamp <= last_microtimestamp {
-                            //TODO: potentially add some error logging here
+                            tracing::warn!("Microtimestamp is <= last microtimestamp");
                             continue;
                         } else {
                             //Collect all of the bids from the update
@@ -149,6 +150,7 @@ pub fn spawn_stream_handler(
                     // This is an internal message signifying that the stream has reconnected so we need to get a snapshot
                     // First get a snapshot of the order book, handle all of the bids/asks and send it through the channel to the aggregated orderbook
                     if message.is_empty() {
+                        tracing::info!("Getting order book snapshot");
                         let snapshot = get_order_book_snapshot(&pair).await?;
 
                         let mut bids = vec![];
