@@ -61,7 +61,7 @@ pub fn spawn_order_book_stream(
             ws_stream_tx
                 .send(Message::Binary(GET_ORDER_BOOK_SNAPSHOT))
                 .await
-                .map_err(BinanceError::MessageSendError)?; //TODO: we prob dont need a binance error for this
+                .map_err(BinanceError::MessageSendError)?;
 
             //Send messages through a channel to be handled by the stream handler, respond to ping requests and handle reconnects
             while let Some(Ok(message)) = order_book_stream.next().await {
@@ -326,5 +326,3 @@ mod tests {
         }
     }
 }
-
-//TODO: add some tests for error cases
