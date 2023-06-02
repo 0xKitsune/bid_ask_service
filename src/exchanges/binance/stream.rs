@@ -49,7 +49,7 @@ pub fn spawn_order_book_stream(
             //Establish an infinite loop to handle a ws stream with reconnects
             let order_book_endpoint = WS_BASE_ENDPOINT.to_owned() + &pair + "@depth"; //TODO: see if we can specify the depth to listen to
 
-            // Connect to the order book stream endpoint
+            // Connect to the order book stream endpoint and start the stream
             let (mut order_book_stream, _) = tokio_tungstenite::connect_async(order_book_endpoint)
                 .await
                 .map_err(BinanceError::TungsteniteError)?;
@@ -155,12 +155,11 @@ pub fn spawn_stream_handler(
                         let snapshot = get_order_book_snapshot(&pair, order_book_depth).await?;
 
                         let mut bids = vec![];
-
                         for bid in snapshot.bids.into_iter() {
                             bids.push(Bid::new(bid[0], bid[1], Exchange::Binance));
                         }
-                        let mut asks = vec![];
 
+                        let mut asks = vec![];
                         for ask in snapshot.asks.into_iter() {
                             asks.push(Ask::new(ask[0], ask[1], Exchange::Binance));
                         }
@@ -170,6 +169,7 @@ pub fn spawn_stream_handler(
                             .await
                             .map_err(BinanceError::PriceLevelUpdateSendError)?;
 
+                        //Update the last seen update id
                         last_update_id = snapshot.last_update_id;
                     }
                 }

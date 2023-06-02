@@ -20,44 +20,7 @@ const SUBSCRIBE_EVENT: &str = "bts:subscribe";
 const DIFF_ORDER_BOOK: &str = "diff_order_book";
 const ORDER_BOOK_SNAPSHOT_BASE_ENDPOINT: &str = "https://www.bitstamp.net/api/v2/order_book/";
 const DATA_EVENT: &str = "data";
-//TODO: Add a comment for what this is also there are more efficent ways to do this, update this
 const GET_ORDER_BOOK_SNAPSHOT: Vec<u8> = vec![];
-
-#[derive(Serialize, Debug)]
-pub struct SubscribeMessage {
-    event: String,
-    data: SubscriptionData,
-}
-impl SubscribeMessage {
-    pub fn new(channel: &str) -> SubscribeMessage {
-        SubscribeMessage {
-            event: SUBSCRIBE_EVENT.to_owned(),
-            data: SubscriptionData::new(channel),
-        }
-    }
-}
-
-#[derive(Serialize, Debug)]
-pub struct SubscriptionData {
-    channel: String,
-}
-impl SubscriptionData {
-    pub fn new(channel: &str) -> SubscriptionData {
-        SubscriptionData {
-            channel: String::from(channel),
-        }
-    }
-}
-
-//TODO: note to self, I think we are going to want to get the full live order book data
-
-//TODO: in this case, it seems liek the live order book endpoint gives the list of the top 100 bids at a time, we dont need this if its repeating data.
-
-//TODO: the live detail order book does the same thing but gives more data
-
-//TODO: the live full order book just gives you the list of changed bids/asks since the last broadcast.
-
-//TODO: we can prob couple this with the snapshot as well just like binance and follow almost the exact same order to get a buffered stream with reconnects
 
 pub fn spawn_order_book_stream(
     pair: String,
@@ -73,14 +36,17 @@ pub fn spawn_order_book_stream(
     let stream_handle = tokio::spawn(async move {
         let ws_stream_tx: Sender<Message> = ws_stream_tx.clone();
         loop {
+            //Connect to the websocket endpoint
             let (mut order_book_stream, _) = tokio_tungstenite::connect_async(WS_BASE_ENDPOINT)
                 .await
                 .map_err(BitstampError::TungsteniteError)?;
 
+            //Create a subscription message to notify Bitstamp to send order book updates
             let subscription_message =
                 serde_json::to_string(&SubscribeMessage::new(&format!("{DIFF_ORDER_BOOK}_{pair}")))
                     .map_err(BitstampError::SerdeJsonError)?;
 
+            //Send a subscribe message to start the stream
             order_book_stream
                 .send(tungstenite::Message::Text(subscription_message))
                 .await
@@ -88,13 +54,15 @@ pub fn spawn_order_book_stream(
 
             log::info!("Ws connection established");
 
-            //TODO: send a message telling to get the orderbook snapshot
-
+            //Notify the stream handler to get a snapshot of the order book
+            //This will be the first message that the stream handler receives, so a
+            //snapshot of the orderbook will be retrieved before any order book updates are handled
             ws_stream_tx
                 .send(Message::Binary(GET_ORDER_BOOK_SNAPSHOT))
                 .await
-                .map_err(BitstampError::MessageSendError)?; //TODO: we prob dont need a binance error for this
+                .map_err(BitstampError::MessageSendError)?;
 
+            //Send messages through a channel to be handled by the stream handler, respond to ping requests and handle reconnects
             while let Some(Ok(message)) = order_book_stream.next().await {
                 match message {
                     tungstenite::Message::Text(_) => {
@@ -132,36 +100,41 @@ pub fn spawn_stream_handler(
     price_level_tx: Sender<PriceLevelUpdate>,
 ) -> JoinHandle<Result<(), BidAskServiceError>> {
     let order_book_update_handle = tokio::spawn(async move {
-        //TODO: update heuristic to check if orders are gtg
         let mut last_microtimestamp = 0;
 
         while let Some(message) = ws_stream_rx.recv().await {
             match message {
                 tungstenite::Message::Text(message) => {
+                    //Deserialize the event and check if it is a data event
                     let order_book_event = serde_json::from_str::<OrderBookEvent>(&message)
                         .map_err(BitstampError::SerdeJsonError)?;
 
                     if order_book_event.event == DATA_EVENT {
+                        //Deserialize the order book update to extract the bids and asks
                         let order_book_update = serde_json::from_str::<OrderBookUpdate>(&message)
                             .map_err(BitstampError::SerdeJsonError)?;
 
                         let order_book_data = order_book_update.data;
 
+                        // If the microtimestamp of the order book data is not newer than the last microtimestamp we skip
+                        //processing it and continue with the next message
                         if order_book_data.microtimestamp <= last_microtimestamp {
                             //TODO: potentially add some error logging here
                             continue;
                         } else {
+                            //Collect all of the bids from the update
                             let mut bids = vec![];
                             for bid in order_book_data.bids.into_iter() {
                                 bids.push(Bid::new(bid[0], bid[1], Exchange::Bitstamp));
                             }
 
+                            //Collect all of the asks from the update
                             let mut asks = vec![];
-
                             for ask in order_book_data.asks.into_iter() {
                                 asks.push(Ask::new(ask[0], ask[1], Exchange::Bitstamp));
                             }
 
+                            //Send the batched price level update to the aggregated order book
                             price_level_tx
                                 .send(PriceLevelUpdate::new(bids, asks))
                                 .await
@@ -173,16 +146,17 @@ pub fn spawn_stream_handler(
                 }
 
                 tungstenite::Message::Binary(message) => {
-                    //This is an internal message signaling that we should get the depth snapshot and send it through the channel
+                    // This is an internal message signifying that the stream has reconnected so we need to get a snapshot
+                    // First get a snapshot of the order book, handle all of the bids/asks and send it through the channel to the aggregated orderbook
                     if message.is_empty() {
                         let snapshot = get_order_book_snapshot(&pair).await?;
+
                         let mut bids = vec![];
                         for bid in snapshot.bids.into_iter() {
                             bids.push(Bid::new(bid[0], bid[1], Exchange::Bitstamp));
                         }
 
                         let mut asks = vec![];
-
                         for ask in snapshot.asks.into_iter() {
                             asks.push(Ask::new(ask[0], ask[1], Exchange::Bitstamp));
                         }
@@ -192,6 +166,7 @@ pub fn spawn_stream_handler(
                             .await
                             .map_err(BitstampError::PriceLevelUpdateSendError)?;
 
+                        //Update the last seen microtimestamp
                         last_microtimestamp = snapshot.microtimestamp;
                     }
                 }
@@ -204,6 +179,32 @@ pub fn spawn_stream_handler(
     });
 
     order_book_update_handle
+}
+
+#[derive(Serialize, Debug)]
+pub struct SubscriptionData {
+    channel: String,
+}
+impl SubscriptionData {
+    pub fn new(channel: &str) -> SubscriptionData {
+        SubscriptionData {
+            channel: String::from(channel),
+        }
+    }
+}
+
+#[derive(Serialize, Debug)]
+pub struct SubscribeMessage {
+    event: String,
+    data: SubscriptionData,
+}
+impl SubscribeMessage {
+    pub fn new(channel: &str) -> SubscribeMessage {
+        SubscribeMessage {
+            event: SUBSCRIBE_EVENT.to_owned(),
+            data: SubscriptionData::new(channel),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -247,11 +248,6 @@ pub struct OrderBookUpdateData {
         rename = "timestamp",
         deserialize_with = "exchange_utils::convert_from_string_to_u64"
     )]
-    timestamp: u64,
-    #[serde(
-        rename = "microtimestamp",
-        deserialize_with = "exchange_utils::convert_from_string_to_u64"
-    )]
     microtimestamp: u64,
     #[serde(
         rename = "bids",
@@ -267,6 +263,8 @@ pub struct OrderBookUpdateData {
 
 async fn get_order_book_snapshot(pair: &str) -> Result<OrderBookSnapshot, BitstampError> {
     let snapshot_endpoint = ORDER_BOOK_SNAPSHOT_BASE_ENDPOINT.to_owned() + pair;
+
+    // Get the depth snapshot, deserialize and return the result
     let snapshot_response = reqwest::get(snapshot_endpoint).await?;
     if snapshot_response.status().is_success() {
         Ok(snapshot_response.json::<OrderBookSnapshot>().await?)
@@ -284,15 +282,21 @@ mod tests {
         Arc,
     };
 
-    use crate::order_book::error::OrderBookError;
+    use crate::exchanges::bitstamp::stream::get_order_book_snapshot;
     use crate::{error::BidAskServiceError, exchanges::bitstamp::stream::spawn_order_book_stream};
     use futures::FutureExt;
+
     #[tokio::test]
+    async fn test_get_order_book_snapshot() {
+        let snapshot = get_order_book_snapshot("ethbtc")
+            .await
+            .expect("Could not get order book snapshot");
 
-    //TODO: add a test for order book snapshot
+        assert!(!snapshot.bids.is_empty());
+        assert!(!snapshot.asks.is_empty());
+    }
 
-    //TODO: add some failure tests
-
+    #[tokio::test]
     async fn test_spawn_order_book_stream() {
         let atomic_counter_0 = Arc::new(AtomicU32::new(0));
         let atomic_counter_1 = atomic_counter_0.clone();
