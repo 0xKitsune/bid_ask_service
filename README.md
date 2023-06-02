@@ -5,7 +5,6 @@
 
 
 ## TODO:
-- address all todos
 - Add more error handling where applicable
 - write writeup
 
