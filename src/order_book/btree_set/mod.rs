@@ -6,6 +6,7 @@ use super::{
 };
 
 impl BuySide for BTreeSet<Bid> {
+    //Update the bids in the order book with the new bid
     fn update_bids(&mut self, bid: Bid, max_depth: usize) {
         if bid.get_quantity().0 == 0.0 {
             self.remove(&bid);
@@ -34,10 +35,12 @@ impl BuySide for BTreeSet<Bid> {
         }
     }
 
+    //Get the best bid in the data structure
     fn get_best_bid(&self) -> Option<&Bid> {
         self.iter().last()
     }
 
+    //Get the best "n" bids in the data structure
     fn get_best_n_bids(&self, n: usize) -> Vec<Option<Bid>> {
         let mut best_bids = Vec::new();
 
@@ -54,6 +57,7 @@ impl BuySide for BTreeSet<Bid> {
 }
 
 impl SellSide for BTreeSet<Ask> {
+    //Update the asks in the order book with the new bid
     fn update_asks(&mut self, ask: Ask, max_depth: usize) {
         if ask.get_quantity().0 == 0.0 {
             self.remove(&ask);
@@ -82,10 +86,12 @@ impl SellSide for BTreeSet<Ask> {
         }
     }
 
+    //Get the best ask in the data structure
     fn get_best_ask(&self) -> Option<&Ask> {
         self.iter().next()
     }
 
+    //Get the best "n" asks in the data structure
     fn get_best_n_asks(&self, n: usize) -> Vec<Option<Ask>> {
         let mut best_asks = Vec::new();
 

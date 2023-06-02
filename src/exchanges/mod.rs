@@ -12,7 +12,6 @@ use tokio::sync::mpsc::Sender;
 use tokio::task::JoinHandle;
 
 use crate::error::BidAskServiceError;
-use crate::order_book::error::OrderBookError;
 use crate::order_book::price_level::PriceLevelUpdate;
 
 use self::binance::Binance;
@@ -23,6 +22,7 @@ const BITSTAMP: &str = "bitstamp";
 
 #[async_trait]
 pub trait OrderBookService {
+    /// Spawns an order book service to stream order book data and handle stream events for a specified pair.
     fn spawn_order_book_service(
         pair: [&str; 2],
         order_book_depth: usize,
@@ -38,6 +38,7 @@ pub enum Exchange {
 }
 
 impl Exchange {
+    //Spawn the order book service for the specified exchange
     pub fn spawn_order_book_service(
         &self,
         pair: [&str; 2],
@@ -61,10 +62,12 @@ impl Exchange {
         }
     }
 
+    //Return all available exchanges
     pub fn all_exchanges() -> Vec<Exchange> {
         vec![Exchange::Bitstamp, Exchange::Binance]
     }
 
+    //Parse a list of exchanges from a comma separated String into a Vec<Exchange>
     pub fn parse_exchanges(exchanges: String) -> Result<Vec<Exchange>, ParseExchangeError> {
         Ok(exchanges
             .split(',')

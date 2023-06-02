@@ -11,6 +11,7 @@ pub enum OrderType {
 
 #[derive(Debug, Clone)]
 
+// Data type to be sent from an exchange's stream handler, to the aggregated order book
 pub struct PriceLevelUpdate {
     pub bids: Vec<Bid>,
     pub asks: Vec<Ask>,

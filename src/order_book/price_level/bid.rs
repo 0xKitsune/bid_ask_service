@@ -1,9 +1,6 @@
-use std::{
-    cmp::Ordering,
-};
+use std::cmp::Ordering;
 
-use ordered_float::{OrderedFloat};
-
+use ordered_float::OrderedFloat;
 
 use crate::{exchanges::Exchange, order_book::Order};
 
@@ -69,8 +66,22 @@ impl Ord for Bid {
                 Ordering::Equal => Ordering::Equal,
                 //If the price is the same but the exchange is different, compare the quantity
                 _ => match self.quantity.cmp(&other.quantity) {
-                    //TODO: add a note as to why we give strictly less ordering. Ultimatley, this is because when trying to check if a key is contained within an btree or btreemap/set, it uses the ord
-                    //TODO: trait. This make it so that if the exchange has a higher order and it stops searching.
+                    //When using Rust's std btree or other data types, the Ord implementation is used to sort the key. When checking if a structure
+                    //contains a value, it compares the key to each value and checks if it is greater than, less than or equal to the current value.
+                    //In the case that the price is the same, and the quantity is the same but the exchange is different, we need to return Ordering::Less, otherwise the contains function will exit early
+
+                    //For example in the search_node function of a BTreeSet:
+                    // match key.cmp(k.borrow()) {
+                    //     Ordering::Greater => {}
+                    //     Ordering::Equal => return IndexResult::KV(start_index + offset),
+                    //     Ordering::Less => return IndexResult::Edge(start_index + offset),
+                    // }
+
+                    //Lets say a new bid is being added with a price of 1.0, quantity of 1.0 and the exchange is Binance.
+                    //Lets also say that there is currently a price level with a price of 1.0, quantity of 5.0 and the exchange is Binance.
+                    //If we compare it to an order that has a price of 1.0, quantity of 1.0 and the exchange is Bitstamp, the new order will be considered greater
+                    // and the function will exit saying that the order is not in the data structure, however it would be the next value in this case.
+                    //For this reason, if the price and quantity are exactly the same, we return less so that the function continues to search the structure
                     Ordering::Equal => Ordering::Less,
                     other => other,
                 },
@@ -83,10 +94,7 @@ impl Ord for Bid {
 #[cfg(test)]
 mod tests {
 
-    use crate::{
-        exchanges::Exchange,
-        order_book::{Bid},
-    };
+    use crate::{exchanges::Exchange, order_book::Bid};
 
     #[test]
     pub fn test_bid_greater() {
