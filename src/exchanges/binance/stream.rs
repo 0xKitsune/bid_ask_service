@@ -271,7 +271,17 @@ mod tests {
 
     use futures::FutureExt;
 
-    //TODO: add a test for order book snapshot
+    use crate::exchanges::binance::stream::get_order_book_snapshot;
+
+    #[tokio::test]
+    async fn test_get_order_book_snapshot() {
+        let snapshot = get_order_book_snapshot("ETHBTC", 50)
+            .await
+            .expect("Could not get order book snapshot");
+
+        assert!(!snapshot.bids.is_empty());
+        assert!(!snapshot.asks.is_empty());
+    }
 
     #[tokio::test]
     //Test the Binance WS connection for 50 order book updates
