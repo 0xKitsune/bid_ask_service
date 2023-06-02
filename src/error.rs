@@ -1,3 +1,5 @@
+use log::SetLoggerError;
+
 use crate::{
     exchanges::{
         binance::error::BinanceError, bitstamp::error::BitstampError, error::ExchangeError,

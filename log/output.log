@@ -1,0 +1,4 @@
+2023-06-02T15:38:49.648217Z  INFO tokio-runtime-worker ThreadId(06) kbas::exchanges::bitstamp::stream: Ws connection established
+2023-06-02T15:38:50.797921Z  INFO tokio-runtime-worker ThreadId(09) kbas::exchanges::binance::stream: Ws connection established
+2023-06-02T15:39:59.467080Z  INFO tokio-runtime-worker ThreadId(02) kbas::exchanges::bitstamp::stream: Ws connection established
+2023-06-02T15:40:00.473410Z  INFO tokio-runtime-worker ThreadId(02) kbas::exchanges::binance::stream: Ws connection established

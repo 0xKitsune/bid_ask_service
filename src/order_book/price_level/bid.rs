@@ -66,7 +66,7 @@ impl Ord for Bid {
                 Ordering::Equal => Ordering::Equal,
                 //If the price is the same but the exchange is different, compare the quantity
                 _ => match self.quantity.cmp(&other.quantity) {
-                    //When using Rust's std btree or other data types, the Ord implementation is used to sort the key. When checking if a structure
+                    //When using Rust's std btree or other std lib data types that use the Ord implementation to sort a key, when checking if a structure
                     //contains a value, it compares the key to each value and checks if it is greater than, less than or equal to the current value.
                     //In the case that the price is the same, and the quantity is the same but the exchange is different, we need to return Ordering::Less, otherwise the contains function will exit early
 

@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, error::Error};
+use std::{collections::BTreeSet, error::Error, str::FromStr};
 
 use futures::FutureExt;
 use kbas::{
@@ -13,7 +13,12 @@ use kbas::{
     },
 };
 
-use clap::Parser;
+use tonic::transport::Server;
+
+use clap::{Args, Parser};
+use tracing::{metadata::LevelFilter, Subscriber};
+use tracing_appender::non_blocking::{NonBlocking, WorkerGuard};
+use tracing_subscriber::fmt::format::{Compact, DefaultFields, Format};
 
 #[derive(Parser, Debug)]
 #[clap(name = "Bid ask service")]
@@ -49,14 +54,21 @@ struct Opts {
     /// Socket address for the gRPC server
     #[clap(long, default_value = "[::1]:50051")]
     socket_address: String,
-}
 
-use tonic::transport::Server;
+    /// Level of logging, options are trace, debug, info, warn, error
+    #[clap(long, default_value = "info")]
+    level: tracing::metadata::LevelFilter,
+
+    /// Path to output file for logging
+    #[clap(long, default_value = "output.log")]
+    log_file_path: String,
+}
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     //Parse the command line args, extract the exchanges and the pair
     let opts = Opts::parse();
+    let _tracing_guard = initialize_tracing(&opts.log_file_path, opts.level)?;
 
     let exchanges = if let Some(values) = opts.exchanges {
         Exchange::parse_exchanges(values)?
@@ -116,4 +128,30 @@ async fn main() -> eyre::Result<()> {
         },
         Err(join_error) => Err(eyre::Report::new(join_error)),
     }
+}
+
+fn initialize_tracing(
+    file_path: &str,
+    level: tracing::metadata::LevelFilter,
+) -> eyre::Result<WorkerGuard> {
+    let file_appender = tracing_appender::rolling::never("log", file_path);
+    let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
+
+    let format = Format::default()
+        .with_timer(tracing_subscriber::fmt::time::SystemTime)
+        .with_ansi(false)
+        .with_thread_ids(true)
+        .with_thread_names(true)
+        .with_level(true)
+        .compact();
+
+    let subscriber = tracing_subscriber::fmt::Subscriber::builder()
+        .with_max_level(level)
+        .event_format(format)
+        .with_writer(non_blocking)
+        .finish();
+
+    tracing::subscriber::set_global_default(subscriber)?;
+
+    Ok(guard)
 }

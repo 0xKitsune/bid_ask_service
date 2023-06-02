@@ -27,6 +27,9 @@ tokio-stream = {version = "0.1.14", features = ["sync"]}
 clap = {version= "4.3.0", features = ["derive"]}
 rand = "0.8.5"
 eyre = "0.6.8"
+tracing = "0.1.37"
+tracing-subscriber = "0.3.17"
+tracing-appender = "0.2.2"
 
 
 

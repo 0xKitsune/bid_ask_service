@@ -52,7 +52,7 @@ pub fn spawn_order_book_stream(
                 .await
                 .map_err(BitstampError::TungsteniteError)?;
 
-            log::info!("Ws connection established");
+            tracing::info!("Ws connection established");
 
             //Notify the stream handler to get a snapshot of the order book
             //This will be the first message that the stream handler receives, so a
@@ -73,13 +73,13 @@ pub fn spawn_order_book_stream(
                     }
 
                     tungstenite::Message::Ping(_) => {
-                        log::info!("Ping received");
+                        tracing::info!("Ping received");
                         order_book_stream.send(Message::Pong(vec![])).await.ok();
-                        log::info!("Pong sent");
+                        tracing::info!("Pong sent");
                     }
 
                     tungstenite::Message::Close(_) => {
-                        log::info!("Ws connection closed, reconnecting...");
+                        tracing::error!("Ws connection closed, reconnecting...");
                         break;
                     }
 
