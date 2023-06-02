@@ -117,9 +117,8 @@ where
         let bids = self.bids.clone();
         let asks = self.asks.clone();
         tokio::spawn(async move {
-            //Track of the first bid and the first ask to calculate the spread
-            let mut first_bid = Bid::default();
-            let mut first_ask = Ask::default();
+            let mut best_bid_price = 0.0;
+            let mut best_ask_price = f64::MAX;
 
             //Track of the best n bids and asks to send to the gRPC server
             let mut best_n_bids: Vec<Level> = vec![];
@@ -165,11 +164,11 @@ where
                             //Return the best levels, the first bid, and the last bid
                             Some((
                                 best_n_levels,
-                                best_bids[0].take().unwrap(),
+                                best_bids[0].take().unwrap().price.0,
                                 best_bids[last_bid - 1].take().unwrap(),
                             ))
                         } else {
-                            //TODO: log an error here because there should be at least one bid, unless maybe we get an update first where there are only asks on the first update
+                            tracing::error!("No bids in aggregated order book");
                             None
                         }
                     } else {
@@ -213,11 +212,11 @@ where
                             //Return the best levels, the first ask, and the last ask
                             Some((
                                 best_n_levels,
-                                best_asks[0].take().unwrap(),
+                                best_asks[0].take().unwrap().price.0,
                                 best_asks[last_ask - 1].take().unwrap(),
                             ))
                         } else {
-                            //TODO: log an error here
+                            tracing::error!("No asks in aggregated order book");
                             None
                         }
                     } else {
@@ -229,27 +228,29 @@ where
                 let (updated_bids, updated_asks) = tokio::join!(bids_fut, asks_fut);
 
                 //Update the best n bids and asks if they have been updated
-                if let Some((best_bids, first, last)) = updated_bids {
+                if let Some((best_bids, first_price, last)) = updated_bids {
                     best_n_bids = best_bids;
-                    first_bid = first;
+                    best_bid_price = first_price;
                     last_bid = last;
                 }
 
                 //Update the best n asks and asks if they have been updated
-                if let Some((best_asks, first, last)) = updated_asks {
+                if let Some((best_asks, first_price, last)) = updated_asks {
                     best_n_asks = best_asks;
-                    first_ask = first;
+                    best_ask_price = first_price;
                     last_ask = last;
                 }
 
                 //Calculate the bid-ask spread and send the updated summary to the gRPC server
-                let bid_ask_spread = first_ask.price.0 - first_bid.price.0;
+                let bid_ask_spread = best_ask_price - best_bid_price;
 
                 let summary = Summary {
                     spread: bid_ask_spread,
                     bids: best_n_bids.clone(),
                     asks: best_n_asks.clone(),
                 };
+
+                tracing::info!("Publishing summary: {:?}", summary);
 
                 summary_tx
                     .send(summary)

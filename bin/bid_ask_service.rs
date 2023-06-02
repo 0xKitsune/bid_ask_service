@@ -95,6 +95,7 @@ async fn main() -> eyre::Result<()> {
         BTreeSet::<Ask>::new(),
     );
 
+    tracing::info!("Spawning aggregated order book bid-ask service");
     //Spawn the bid ask service from the orderbook and the gRPC server
     let mut join_handles = vec![];
     join_handles.extend(aggregated_order_book.spawn_bid_ask_service(
@@ -105,6 +106,7 @@ async fn main() -> eyre::Result<()> {
         summary_tx,
     ));
 
+    tracing::info!("Spawning gRPC server");
     join_handles.push(spawn_grpc_server(router, opts.socket_address.parse()?));
 
     //Collect all of the join handles and await the futures to handle any errors

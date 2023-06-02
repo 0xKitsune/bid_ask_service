@@ -5,7 +5,6 @@
 
 
 ## TODO:
-- Add logging 
 - address all todos
 - update first bid and ask to just be a price to calc the spread or just store the spread and pass the first bid and ask price
 - Add more error handling where applicable
@@ -20,3 +19,4 @@
 ### Reflection Section/ What I would change
 - Concurrency model to use mutexes instead of channels for exchange/order book communication
 - The Bid/Ask Ord trait
+- Logging, right now it writes often and could be to a database instead
