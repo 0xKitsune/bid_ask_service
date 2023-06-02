@@ -2,23 +2,17 @@ pub mod error;
 
 use futures::Stream;
 use futures::StreamExt;
-use orderbook_service::{Empty, Level, Summary};
+use orderbook_service::{Empty, Summary};
 use std::net::SocketAddr;
-use std::sync::Arc;
-use std::{
-    pin::Pin,
-    sync::atomic::{AtomicU32, Ordering},
-};
-use tokio::sync::broadcast::error::RecvError;
-use tokio::sync::{
-    broadcast::{Receiver, Sender},
-    mpsc,
-};
+
+use std::pin::Pin;
+
+use tokio::sync::broadcast::{Receiver, Sender};
 use tokio::task::JoinHandle;
 use tokio_stream::wrappers::errors::BroadcastStreamRecvError;
 use tonic::transport::server::Router;
-use tonic::transport::Server;
-use tonic::{Request, Response, Status, Streaming};
+
+use tonic::{Request, Response, Status};
 
 use crate::error::BidAskServiceError;
 
@@ -33,15 +27,13 @@ pub fn spawn_grpc_server(
     router: Router,
     socket_address: SocketAddr,
 ) -> JoinHandle<Result<(), BidAskServiceError>> {
-    let handle = tokio::spawn(async move {
+    tokio::spawn(async move {
         router
             .serve(socket_address)
             .await
             .map_err(ServerError::TransportError)?;
         Ok::<_, BidAskServiceError>(())
-    });
-
-    handle
+    })
 }
 
 #[derive(Debug)]

@@ -74,8 +74,8 @@ async fn main() -> eyre::Result<()> {
 
     let tickers = opts
         .pair
-        .split(",")
-        .map(|s| s.replace(" ", "").to_lowercase())
+        .split(',')
+        .map(|s| s.replace(' ', "").to_lowercase())
         .collect::<Vec<String>>();
 
     let pair: [&str; 2] = [&tickers[0], &tickers[1]];

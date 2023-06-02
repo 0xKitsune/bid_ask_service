@@ -69,10 +69,10 @@ impl Exchange {
 
     //Parse a list of exchanges from a comma separated String into a Vec<Exchange>
     pub fn parse_exchanges(exchanges: String) -> Result<Vec<Exchange>, ParseExchangeError> {
-        Ok(exchanges
+        exchanges
             .split(',')
             .map(|s| s.parse::<Exchange>())
-            .collect::<Result<Vec<_>, _>>()?)
+            .collect::<Result<Vec<_>, _>>()
     }
 }
 

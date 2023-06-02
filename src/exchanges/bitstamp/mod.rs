@@ -53,11 +53,11 @@ mod tests {
         Arc,
     };
 
+    use crate::exchanges::OrderBookService;
     use crate::{
         error::BidAskServiceError, exchanges::bitstamp::Bitstamp,
         order_book::price_level::PriceLevelUpdate,
     };
-    use crate::{exchanges::OrderBookService, order_book::error::OrderBookError};
     use futures::FutureExt;
 
     #[tokio::test]

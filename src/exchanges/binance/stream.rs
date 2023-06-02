@@ -1,8 +1,6 @@
 use serde_derive::Deserialize;
 use tokio::{sync::mpsc::Receiver, task::JoinHandle};
 
-use crate::exchanges::error::ExchangeError;
-use crate::order_book::error::OrderBookError;
 use crate::order_book::price_level::ask::Ask;
 use crate::order_book::price_level::bid::Bid;
 use crate::order_book::price_level::PriceLevelUpdate;
@@ -102,7 +100,7 @@ pub fn spawn_stream_handler(
     mut ws_stream_rx: Receiver<Message>,
     price_level_tx: Sender<PriceLevelUpdate>,
 ) -> JoinHandle<Result<(), BidAskServiceError>> {
-    let order_book_update_handle = tokio::spawn(async move {
+    tokio::spawn(async move {
         let mut last_update_id = 0;
 
         while let Some(message) = ws_stream_rx.recv().await {
@@ -179,9 +177,7 @@ pub fn spawn_stream_handler(
         }
 
         Ok::<(), BidAskServiceError>(())
-    });
-
-    order_book_update_handle
+    })
 }
 
 #[derive(Debug, Deserialize)]

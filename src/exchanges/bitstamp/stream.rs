@@ -11,10 +11,10 @@ use tokio::{
     sync::mpsc::{Receiver, Sender},
     task::JoinHandle,
 };
-use tracing::trace;
+
 use tungstenite::Message;
 
-use crate::{exchanges::bitstamp::error::BitstampError, order_book::error::OrderBookError};
+use crate::exchanges::bitstamp::error::BitstampError;
 
 const WS_BASE_ENDPOINT: &str = "wss://ws.bitstamp.net/";
 const SUBSCRIBE_EVENT: &str = "bts:subscribe";
@@ -100,7 +100,7 @@ pub fn spawn_stream_handler(
     mut ws_stream_rx: Receiver<Message>,
     price_level_tx: Sender<PriceLevelUpdate>,
 ) -> JoinHandle<Result<(), BidAskServiceError>> {
-    let order_book_update_handle = tokio::spawn(async move {
+    tokio::spawn(async move {
         let mut last_microtimestamp = 0;
 
         while let Some(message) = ws_stream_rx.recv().await {
@@ -178,9 +178,7 @@ pub fn spawn_stream_handler(
         }
 
         Ok::<(), BidAskServiceError>(())
-    });
-
-    order_book_update_handle
+    })
 }
 
 #[derive(Serialize, Debug)]

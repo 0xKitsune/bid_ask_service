@@ -1,6 +1,5 @@
 use std::{
     collections::BTreeSet,
-    error::Error,
     net::SocketAddr,
     sync::{
         atomic::{AtomicU32, Ordering},
@@ -114,7 +113,7 @@ async fn spawn_client(
     atomic_counter: Arc<AtomicU32>,
     target_count: u32,
 ) -> JoinHandle<Result<(), BidAskServiceError>> {
-    let client_handle = tokio::spawn(async move {
+    tokio::spawn(async move {
         // connect to the gRPC server
         let channel = Channel::from_shared("http://".to_owned() + &server_address)
             .expect("could not form channel from server address")
@@ -146,7 +145,5 @@ async fn spawn_client(
             }
         }
         Ok::<(), BidAskServiceError>(())
-    });
-
-    client_handle
+    })
 }

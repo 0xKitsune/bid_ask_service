@@ -142,7 +142,7 @@ where
                     //If the bid is better than the "worst" bid in the top bids, update the best n bids
                     if update_best_bids {
                         let mut best_bids = bids.lock().await.get_best_n_bids(best_n_orders);
-                        if let Some(_) = &best_bids[0] {
+                        if best_bids[0].is_some() {
                             let mut best_n_levels = vec![];
 
                             //Get the best "n" bids and add the level to the best n levels
@@ -190,7 +190,7 @@ where
                     if update_best_asks {
                         let mut best_asks = asks.lock().await.get_best_n_asks(best_n_orders);
 
-                        if let Some(_) = &best_asks[0] {
+                        if best_asks[0].is_some() {
                             let mut best_n_levels = vec![];
 
                             //Get the best "n" asks and add the level to the best n levels
