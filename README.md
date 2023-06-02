@@ -5,7 +5,6 @@
 
 
 ## TODO:
-- write comments
 - address all todos
 - Add logging 
 - Add more error handling where applicable

@@ -67,6 +67,8 @@ impl orderbook_service::orderbook_aggregator_server::OrderbookAggregator
     type BookSummaryStream =
         Pin<Box<dyn Stream<Item = Result<Summary, Status>> + Send + Sync + 'static>>;
 
+
+    //Send a stream receiver to the client that will send the latest summary of the aggregated order book on each update
     async fn book_summary(
         &self,
         _request: Request<Empty>,
