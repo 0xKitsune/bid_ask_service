@@ -1,6 +1,4 @@
-use clap::Parser;
-use futures::FutureExt;
-use kbas::{
+use bid_ask_service::{
     exchanges::Exchange,
     order_book::{
         price_level::{ask::Ask, bid::Bid},
@@ -11,6 +9,8 @@ use kbas::{
         spawn_grpc_server,
     },
 };
+use clap::Parser;
+use futures::FutureExt;
 use std::collections::BTreeSet;
 use tonic::transport::Server;
 use tracing_appender::non_blocking::WorkerGuard;

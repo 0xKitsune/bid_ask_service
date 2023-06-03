@@ -1,13 +1,13 @@
 use std::collections::BTreeSet;
 
-use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
-use kbas::{
+use bid_ask_service::{
     exchanges::Exchange,
     order_book::{
         price_level::{ask::Ask, bid::Bid},
-        BuySide, Order, OrderBook, SellSide,
+        BuySide, Order, SellSide,
     },
 };
+use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 use ordered_float::OrderedFloat;
 use rand::Rng;
 

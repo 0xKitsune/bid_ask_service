@@ -8,8 +8,7 @@ use std::{
     time::Duration,
 };
 
-use futures::FutureExt;
-use kbas::{
+use bid_ask_service::{
     error::BidAskServiceError,
     exchanges::Exchange,
     order_book::{
@@ -22,6 +21,7 @@ use kbas::{
         orderbook_service::Empty, spawn_grpc_server,
     },
 };
+use futures::FutureExt;
 use tokio::{task::JoinHandle, time};
 use tonic::transport::{Channel, Server};
 
