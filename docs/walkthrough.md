@@ -245,7 +245,7 @@ It would be worthwhile to see how the two compare in performance.
 ### Orderbook Data Structures
 To represent the buy and sell side of the aggregated orderbook, I chose a `BTreeSet` as a data structure. A `BTreeSet` offers efficient insertion, removal, and traversal operations with a time complexity of O(log n). In the context of an order book where prices are constantly updating and orders are continuously being added and removed, having efficient operations is important.
 
-The `BTreeSet` also maintains its elements in a sorted order which particularly useful for an order book where we want to quickly access the highest bid or the lowest ask. This sort of access can be performed in constant time O(1) due to the maintained order.
+The `BTreeSet` also maintains its elements in a sorted order which particularly useful for an order book where we want to quickly access the highest bid or the lowest ask.
 
 Even with these benefits, there are areas where the current approach could be improved or modified for potential performance gains or features. Some alternative data structures to consider could be other balanced binary trees like red-black trees, AVL trees. One could also consider some datastructures that utilizes arrays, hashmaps, or heaps, each with its own strengths and trade-offs. Additionally, there are concurrent data structures that allow concurrent read/writes could potentially be used depending on the design. 
 
