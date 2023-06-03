@@ -174,3 +174,57 @@ The `handle_order_book_updates` function receives the a channel receiver, which 
 
 ## Server
   
+The final module of the application is the `server` module. This module is responsible for managing client connections to the gRPC server and streaming order book summary updates to each client. To start the server, the `spawn_grpc_server` function is called.
+
+```rust
+pub fn spawn_grpc_server(
+    router: Router,
+    socket_address: SocketAddr,
+) -> JoinHandle<Result<(), BidAskServiceError>> {
+    tokio::spawn(async move {
+        router
+            .serve(socket_address)
+            .await
+            .map_err(ServerError::TransportError)?;
+        Ok::<_, BidAskServiceError>(())
+    })
+}
+
+```
+
+Following this, each time a client connects to the server, a receiver channel containing the aggregated order book summary updates is used to serve the summary to the client as a stream.
+
+```rust
+#[tonic::async_trait]
+impl orderbook_service::orderbook_aggregator_server::OrderbookAggregator
+    for OrderbookAggregatorService
+{
+    type BookSummaryStream =
+        Pin<Box<dyn Stream<Item = Result<Summary, Status>> + Send + Sync + 'static>>;
+
+    //Send a stream receiver to the client that will send the latest summary of the aggregated order book on each update
+    async fn book_summary(
+        &self,
+        _request: Request<Empty>,
+    ) -> Result<Response<Self::BookSummaryStream>, Status> {
+        tracing::info!("New client connected to book summary stream");
+
+        let rx = self.summary_rx.resubscribe();
+
+        let stream =
+            tokio_stream::wrappers::BroadcastStream::new(rx).map(|summary| match summary {
+                Ok(summary) => Ok(summary),
+                Err(e) => match e {
+                    BroadcastStreamRecvError::Lagged(_) => {
+                        Err(Status::internal("Stream lagged too far behind"))
+                    }
+                },
+            });
+
+        Ok(Response::new(Box::pin(stream)))
+    }
+}
+```
+
+In summary, the bid ask service initializes an aggregated orderbook,  which manages the order book streams for each exchange, passing the updates through a channel where it then reaches clients connected to the gRPC server. If you would like to see all of these components in action, feel free to check out [bin/bid_ask_service.rs](bin/bid_ask_service.rs).
+
