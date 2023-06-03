@@ -1,7 +1,10 @@
-use std::{fmt::Debug, sync::Arc};
+pub mod btree_set;
+pub mod error;
+pub mod price_level;
 
 use async_trait::async_trait;
 use ordered_float::OrderedFloat;
+use std::{fmt::Debug, sync::Arc};
 use tokio::{
     sync::{broadcast::Sender, mpsc::Receiver, Mutex},
     task::JoinHandle,
@@ -17,9 +20,6 @@ use self::{
     error::OrderBookError,
     price_level::{ask::Ask, bid::Bid, PriceLevelUpdate},
 };
-pub mod btree_set;
-pub mod error;
-pub mod price_level;
 
 pub trait Order: Ord {
     fn get_price(&self) -> &OrderedFloat<f64>;

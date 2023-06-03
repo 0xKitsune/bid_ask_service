@@ -117,7 +117,7 @@ mod tests {
         exchanges::Exchange,
         order_book::{
             price_level::{ask::Ask, bid::Bid},
-            BuySide, Order, OrderBook, SellSide,
+            BuySide, Order, SellSide,
         },
     };
 

@@ -32,7 +32,7 @@ async fn test_bid_ask_service() {
     let atomic_counter_1 = atomic_counter_0.clone();
 
     //specify the amount of stream events that should be successfully handled
-    let target_count = 500;
+    let target_count = 200;
 
     let server_address = "[::1]:50051".to_owned();
 

@@ -5,18 +5,14 @@ use futures::StreamExt;
 use orderbook_service::{Empty, Summary};
 use std::net::SocketAddr;
 
+use self::error::ServerError;
+use crate::error::BidAskServiceError;
 use std::pin::Pin;
-
 use tokio::sync::broadcast::{Receiver, Sender};
 use tokio::task::JoinHandle;
 use tokio_stream::wrappers::errors::BroadcastStreamRecvError;
 use tonic::transport::server::Router;
-
 use tonic::{Request, Response, Status};
-
-use crate::error::BidAskServiceError;
-
-use self::error::ServerError;
 
 pub mod orderbook_service {
 
