@@ -236,9 +236,38 @@ After finishing this build, there are a few considerations for upgrades/improvem
 
 
 ### Concurrency Model
+In the initial design of the program, channels were used to pass data between concurrent threads. Channels offer several benefits such as ease of use, particularly for those new to concurrent programming. They fit nicely into the producer-consumer pattern, simplifying the flow of data between different parts of the system. Additionally, since sequential the order book is updated frequently and sequentially, I originally thought that channels could avoid the overhead of locking/unlocking a mutex or lock.
+
+However, there can be potential benefits in considering options like `Arc<Mutex<T>>` or `Arc<RwLock<T>>` for certain situations. With channels, synchronization is implicit. You can send and receive messages, and the channel takes care of the rest. This can be great for preventing data races and other concurrency-related bugs.
+
+In contrast, approaches like `Arc<Mutex<T>>` involve explicit synchronization. You explicitly acquire the lock to a mutex to control access to the data. This gives you more control and can sometimes be more efficient, because you can avoid the overhead of sending and receiving messages.
+
+It would be worthwhile to see how the two compare in performance. 
 
 ### Orderbook Data Structures
+To represent the buy and sell side of the aggregated orderbook, I chose a `BTreeSet` as a data structure. A `BTreeSet` offers efficient insertion, removal, and retrieval operations with a time complexity of O(log n). In the context of an order book where prices are constantly updating and orders are continuously being added and removed, having efficient operations is important.
+
+The `BTreeSet` also maintains its elements in a sorted order, a feature particularly useful for an order book where we often want to quickly access the highest bid or the lowest ask. This sort of access can be performed in constant time O(1) due to the maintained order.
+
+Even with these benefits, there are areas where the current approach could be improved or modified for potential performance gains or features. Some alternative data structures to consider could be other balanced binary trees like red-black trees, AVL trees, hashmaps, or heaps, each with its own strengths and trade-offs. Additionally, concurrent data structures that allow concurrent read/writes could potentially be used depending on the design. 
+
+Additionally, advanced techniques such as the use of raw pointers could be explored to further optimize performance. Using raw pointers allows for more direct memory management and can reduce the overhead of some operations. However, this comes at the cost of the safety guarantees provided by Rust.
+
+I designed the program so that it is easy to implement the `BuySide` and `SellSide` traits so that other data structures can be used in the orderbook in the future. It would be worth testing the performance of other data structures other than current `BTreeSet` implementation in the future.
+
 
 ### Logging
 
-### Additional Error Handling
+The current logging system uses the `tracing` library and `tracing-appender` for logging to a file, which provides a good base for collecting and preserving diagnostic information about the application's execution. `tracing` is particularly suited to asynchronous systems.
+
+However, like all systems, there are trade-offs to consider. While tracing is highly performant, the process of logging itself - particularly to a file - can be an I/O-bound operation and could potentially become a bottleneck under high load. Additionally, depending on the data that needs to be logged, the log file could get large very quickly.
+
+Also, with logging, it's crucial to strike a balance between having enough information to diagnose issues and avoid being overwhelmed with noise.
+
+In a larger scale or production system, it would be worth considering sending logs to a database or a real-time monitoring service where proper analytics can be carried out, especially if other systems need access to the logs for analysis.
+
+### Additional Error Handling for Exchanges
+
+Currently, the application implements a basic level of error handling, primarily focusing on capturing and managing errors originating from the exchanges. However, given the wide range of potential errors each exchange could produce, there is room for expanding the error handling mechanism.
+
+Implementing more extensive error handling would not only provide finer control over error reporting but would also be instrumental in diagnosing issues more effectively. This could involve capturing more specific error types from each exchange, handling more specific scenarios and better error propagation throughout the system.
