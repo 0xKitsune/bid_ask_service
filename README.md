@@ -51,9 +51,7 @@ With that out of the way, you are ready to run the program!
 
 The Bid Ask Service is configurable via command-line arguments. Here's a rundown of each option:
 
-- `--exchanges, -e`: Specifies the list of exchanges the service should connect to. They should be separated by commas. For example, if you wanted to connect t Binance and Bitstamp, you would specify `--exchanges binance,bitstamp`.
-
-- `--summary_buffer`: Sets the buffer size for the tokio broadcast channel used to stream the aggregated order book to the gRPC server. The default size is 300.
+- `--exchanges, -e`: Specifies the list of exchanges the service should connect to. They should be separated by commas. For example, if you wanted to connect to Binance and Bitstamp, you would specify `--exchanges binance,bitstamp`. If this argument is left blank, all exchanges will be used. Note that to use Binance, you will need to be in an authorized geographic location or use a VPN.
 
 - `--pair, -p`: Specifies the trading pair to listen to updates. Trading pairs should be separated by commas. For example, if you wanted to listen to updates for the ETH/BTC pairing, you would specify `--pair eth,btc`.
 
@@ -65,11 +63,13 @@ The Bid Ask Service is configurable via command-line arguments. Here's a rundown
 
 - `--price_level_channel_buffer`: Sets the channel buffer size to pass the price level updates from the exchange module to the aggregated order book. The default size is 100.
 
+- `--summary_buffer`: Sets the buffer size for the tokio broadcast channel used to stream the aggregated order book to the gRPC server. The default size is 300.
+
 - `--socket_address`: Specifies the socket address for the gRPC server. The default address is `[::1]:50051`.
 
 - `--level`: Sets the level of logging. The options are trace, debug, info, warn, and error. The default level is info.
 
-- `--log_file_path`: Specifies the path to the output file for logging. The default path is `output.log`.
+- `--log_file_path`: Specifies the path to the output file for logging. All log files will be written to the `log` dir.  The default path is `output.log`, writing the file to `log/output.log`.
 
 
 
@@ -82,8 +82,8 @@ bid_ask_service --exchanges binance,bitstamp --pair eth,btc --order_book_depth 5
 
 ## Running Tests / Benchmarks
 
-To run the test suite, enter `cargo test` in your terminal while in the project directory. Note that the Binance tests will not pass if you are in an unauthorized geographic region (this is also the reason why the CI pipeline currently fails).
+To run the test suite, you can run `cargo test` in your terminal while in the project's root directory. Note that the Binance tests will not pass if you are in an unauthorized geographic region (this is also the reason why the CI pipeline currently fails). You can also use a VPN to successfully run the Binance tests.
 
-To run the benchmarks suite, enter `cargo bench` in your terminal while in the project directory.
+To run the benchmarks suite, run `cargo bench` in your terminal while in the project's root directory.
 
 
