@@ -74,10 +74,102 @@ The `spawn_order_book_service` function returns a vector of the spawned tasks, a
 
 
 ## Order Book
-The `order_book` module is divided into two main components, price levels and order book structures. The `price_level` sub-module defines the `Bid` and `Ask` structs, lays out the rules for their ordering and contains trait definitions for order types.
+The `order_book` module is divided into a few main components, price levels, order book data structures and the aggregated order book. Starting with price levels, the `price_level` sub-module defines the `Bid` and `Ask` structs, lays out the rules for their ordering and contains various trait definitions that define an order. Lets take a quick look at what the `Bid` and `Ask` structs look like.
 
-The other major component to the `order_book` module are the 'order book structures'.
+```rust
 
+pub struct Bid {
+    pub price: OrderedFloat<f64>,
+    pub quantity: OrderedFloat<f64>,
+    pub exchange: Exchange,
+}
+
+pub struct Ask {
+    pub price: OrderedFloat<f64>,
+    pub quantity: OrderedFloat<f64>,
+    pub exchange: Exchange,
+}
+
+```
+Each struct has a `price`, `quantity` and `exchange`. Both the `Bid` and `Ask` structs implement various traits like `Eq`, `PartialEq` and `Ord` to allow them to be ordered correctly within the aggregated orderbook. 
+
+The second major component to the `order_book` module are the buy and sell side traits. Any struct that implements the `BuySide` or `SellSide` traits, can act as the data structure that holds the bids or asks in the aggregated order book. Lets take a quick look at these traits.
+
+```rust
+pub trait BuySide: Debug {
+    fn update_bids(&mut self, bid: Bid, max_depth: usize);
+    fn get_best_bid(&self) -> Option<&Bid>;
+    fn get_best_n_bids(&self, n: usize) -> Vec<Option<Bid>>;
+}
+
+pub trait SellSide: Debug {
+    fn update_asks(&mut self, ask: Ask, max_depth: usize);
+    fn get_best_ask(&self) -> Option<&Ask>;
+    fn get_best_n_asks(&self, n: usize) -> Vec<Option<Ask>>;
+}
+```
+
+The program currently uses a `BTreeSet` to represent bids and asks within the aggregated order book. A `BTreeSet` was chosen because it is a self balancing tree with O(log n) insert, removal and traversal.
+
+The final major component of the `order_book` module is the `AggregatedOrderBook`. This struct is responsible for aggregating all of the bids and asks from each exchange stream and storing the best `n` orders on each side of the market. 
+
+```rust
+pub struct AggregatedOrderBook<B: BuySide + Send, S: SellSide + Send> {
+    pub pair: [String; 2],
+    pub exchanges: Vec<Exchange>,
+    pub bids: Arc<Mutex<B>>,
+    pub asks: Arc<Mutex<S>>,
+}
+```
+
+The `AggregatedOrderBook` contains a method called `spawn_bid_ask_service` which is responsible for calling the `spawn_order_book_service` on each exchange and handling price level updates through it's `handle_order_book_updates`. 
+
+```rust
+
+impl<B, S> AggregatedOrderBook<B, S>
+where
+    B: BuySide + Send + 'static,
+    S: SellSide + Send + 'static,
+{
+    // --snip--
+ pub fn spawn_bid_ask_service(
+        &self,
+        max_order_book_depth: usize,
+        exchange_stream_buffer: usize,
+        price_level_buffer: usize,
+        best_n_orders: usize,
+        summary_tx: Sender<Summary>,
+    ) -> Vec<JoinHandle<Result<(), BidAskServiceError>>> {
+        let (price_level_tx, price_level_rx) =
+            tokio::sync::mpsc::channel::<PriceLevelUpdate>(price_level_buffer);
+        let mut handles = vec![];
+
+        //Spawn the order book service for each exchange, handling order book updates and sending them to the aggregated order book
+        for exchange in self.exchanges.iter() {
+            handles.extend(exchange.spawn_order_book_service(
+                [&self.pair[0], &self.pair[1]],
+                max_order_book_depth,
+                exchange_stream_buffer,
+                price_level_tx.clone(),
+            ))
+        }
+
+        //Handle order book updates from the exchange streams, aggregating the order book and sending the summary to the gRPC server
+        handles.push(self.handle_order_book_updates(
+            price_level_rx,
+            max_order_book_depth,
+            best_n_orders,
+            summary_tx,
+        ));
+
+        handles
+    }
+
+    // --snip--
+}
+```
+
+The `handle_order_book_updates` function receives the a channel receiver, which feeds all of the price updates from each exchange to the function. Upon each new update, the aggregated order book adds the order to the buy or sell side, updates a summary of the bid-ask spread as well as the top `n` orders from both the bids and the asks and sends this summary through a channel to the gRPC server logic, which streams the summary to any clients that have connected to the gRPC server.
 
 
 ## Server
