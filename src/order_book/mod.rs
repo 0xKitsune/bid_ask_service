@@ -129,6 +129,7 @@ where
             let mut last_ask = Ask::default();
 
             while let Some(price_level_update) = price_level_rx.recv().await {
+                //Update the bids as a future
                 let bids_fut = async {
                     //Add each bid to the aggregated order book, checking if the bid is better than the "worst" bid in the top n bids
                     let mut update_best_bids = false;
@@ -176,6 +177,7 @@ where
                     }
                 };
 
+                //Update the asks as a future
                 let asks_fut = async {
                     let mut update_best_asks = false;
 

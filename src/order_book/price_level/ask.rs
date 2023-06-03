@@ -68,6 +68,9 @@ impl Ord for Ask {
                 Ordering::Equal => Ordering::Equal,
 
                 //If the price is the same but the exchange is different, compare the quantity
+                //We reverse the comparison because if the price is the same but the exchange is different
+                // we want the highest quantity to be considered less than the other,
+                //which will order the asks by lowest price with highest quantity as the least, allowing for O(1) retrevial of the best ask
                 _ => match self.quantity.cmp(&other.quantity).reverse() {
                     //When using Rust's std btree or other std lib data types that use the Ord implementation to sort a key, when checking if a structure
                     //contains a value, it compares the key to each value and checks if it is greater than, less than or equal to the current value.
