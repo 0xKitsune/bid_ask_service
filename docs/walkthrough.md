@@ -228,3 +228,17 @@ impl orderbook_service::orderbook_aggregator_server::OrderbookAggregator
 
 In summary, the bid ask service initializes an aggregated orderbook,  which manages the order book streams for each exchange, passing the updates through a channel where it then reaches clients connected to the gRPC server. If you would like to see all of these components in action, feel free to check out [bin/bid_ask_service.rs](bin/bid_ask_service.rs).
 
+
+
+## Reflection / Post Build Thoughts
+
+After finishing this build, there are a few considerations for upgrades/improvements to the codebase. 
+
+
+### Concurrency Model
+
+### Orderbook Data Structures
+
+### Logging
+
+### Additional Error Handling
