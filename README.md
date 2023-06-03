@@ -83,6 +83,10 @@ bid_ask_service --exchanges binance,bitstamp --pair eth,btc --order_book_depth 5
 
 
 
-### Reflection Section/ What I would change
-- Concurrency model to use mutexes instead of channels for exchange/order book communication
-- Logging, right now it writes often and could be to a database instead
+## Running Tests / Benchmarks
+
+To run the test suite, enter `cargo test` in your terminal while in the project directory. Note that the Binance tests will not pass if you are in an unauthorized geographic region (this is also the reason why the CI pipeline currently fails).
+
+To run the benchmarks suite, enter `cargo bench` in your terminal while in the project directory.
+
+
