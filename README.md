@@ -13,9 +13,6 @@ This README provides a step-by-step guide on how to install/run the program. Add
 3. [Code Walkthrough/Reflections](docs/walkthrough.md)
 
 
-
-
-
 <br>
 
 ## Installing 
