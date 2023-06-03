@@ -17,7 +17,7 @@ This README provides a step-by-step guide on how to install/run the program. Add
 
 ## Installing 
 
-Installing the program is quick and easy. First, make sure that you have [Rust installed](https://www.rust-lang.org/tools/install). Once you have Rust installed, you can run the following commands to install the Bid-Ask Service from source.
+Installing the program is quick and easy. First, make sure that you have [Rust installed](https://www.rust-lang.org/tools/install). Once installed, you can run the following commands to install the Bid-Ask Service from source.
 ```bash
 git clone https://github.com/0xKitsune/bid_ask_service
 cd bid_ask_service
