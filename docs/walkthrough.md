@@ -122,7 +122,7 @@ pub struct AggregatedOrderBook<B: BuySide + Send, S: SellSide + Send> {
 }
 ```
 
-The `AggregatedOrderBook` contains a method called `spawn_bid_ask_service` which is responsible for calling the `spawn_order_book_service` on each exchange and handling price level updates through it's `handle_order_book_updates`. 
+The `AggregatedOrderBook` contains a method called `spawn_bid_ask_service` which is responsible for calling the `spawn_order_book_service` on each exchange and handling price level updates through it's `handle_order_book_updates` method. 
 
 ```rust
 
@@ -169,7 +169,7 @@ where
 }
 ```
 
-The `handle_order_book_updates` function receives the a channel receiver, which feeds all of the price updates from each exchange to the function. Upon each new update, the aggregated order book adds the order to the buy or sell side, updates a summary of the bid-ask spread as well as the top `n` orders from both the bids and the asks and sends this summary through a channel to the gRPC server logic, which streams the summary to any clients that have connected to the gRPC server.
+The `handle_order_book_updates` function receives a channel receiver, which feeds all of the price updates from each exchange to the function. Upon each new update, the aggregated order book adds the order to the buy or sell side, updates a summary of the bid-ask spread as well as the top `n` orders from both the bids and the asks and sends this summary through a channel to the gRPC server logic, which streams the summary to any clients that have connected to the gRPC server.
 
 
 ## Server
@@ -226,7 +226,7 @@ impl orderbook_service::orderbook_aggregator_server::OrderbookAggregator
 }
 ```
 
-In summary, the bid ask service initializes an aggregated orderbook,  which manages the order book streams for each exchange, passing the updates through a channel where it then reaches clients connected to the gRPC server. If you would like to see all of these components in action, feel free to check out [bin/bid_ask_service.rs](bin/bid_ask_service.rs).
+In summary, the bid ask service initializes an aggregated orderbook,  which manages the order book streams for each exchange, passing the updates through a channel where it then reaches clients connected to the gRPC server. If you would like to see all of these components in action, feel free to check out [bin/bid_ask_service.rs](https://github.com/0xKitsune/bid_ask_service/blob/main/bin/bid_ask_service.rs).
 
 
 
@@ -236,7 +236,7 @@ After finishing this build, there are a few considerations for upgrades/improvem
 
 
 ### Concurrency Model
-In the initial design of the program, channels were used to pass data between concurrent threads. Channels offer several benefits such as ease of use, particularly for those new to concurrent programming. They fit nicely into the producer-consumer pattern, simplifying the flow of data between different parts of the system. Additionally, since sequential the order book is updated frequently and sequentially, I originally thought that channels could avoid the overhead of locking/unlocking a mutex or lock.
+In the initial design of the program, channels were used to pass data between concurrent threads. Channels fit nicely into the producer-consumer pattern, simplifying the flow of data between different parts of the system. Additionally, since sequential the order book is updated frequently and sequentially, I originally thought that channels could avoid the overhead of locking/unlocking a mutex or lock.
 
 However, there can be potential benefits in considering options like `Arc<Mutex<T>>` or `Arc<RwLock<T>>` for certain situations. With channels, synchronization is implicit. You can send and receive messages, and the channel takes care of the rest. This can be great for preventing data races and other concurrency-related bugs.
 
