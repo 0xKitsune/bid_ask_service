@@ -45,7 +45,7 @@ pub fn spawn_order_book_stream(
         let ws_stream_tx = ws_stream_tx.clone();
         loop {
             //Establish an infinite loop to handle a ws stream with reconnects
-            let order_book_endpoint = WS_BASE_ENDPOINT.to_owned() + &pair + "@depth"; //TODO: see if we can specify the depth to listen to
+            let order_book_endpoint = WS_BASE_ENDPOINT.to_owned() + &pair + "@depth";
 
             // Connect to the order book stream endpoint and start the stream
             let (mut order_book_stream, _) = tokio_tungstenite::connect_async(order_book_endpoint)
