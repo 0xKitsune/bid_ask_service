@@ -8,7 +8,7 @@ The Bid-Ask service is broken up into three major modules, `exchanges`, `order_b
 
 - Lastly, the `server` module serves this aggregated data to clients via a gRPC stream. 
 
-In the next section, we will delve deeper into how each of these modules function, starting with the exchanges module.
+Throughout this walkthrough, we will dive deeper into how each of these modules function, starting with the exchanges module.
 
 
 ## Exchanges
@@ -68,12 +68,17 @@ impl OrderBookService for Binance {
 
 Lets take a closer look at what is happening in this function. 
 
-First, the function formats the pair in accordance with the Binance API, then calling `spawn_order_book_stream`. The `spawn_order_book_stream` function subscribes to a WebSocket stream of order book updates for the given pair. The WebSocket stream uses the `exchange_stream_buffer` variable to define how many messages to buffer the stream by, which helps manage potential backpressure or sudden bursts of updates. When a disconnection happens, this function handles reconnecting to the stream, ensuring no data is missed during the downtime by retrieving a snapshot of the orderbook before handling further stream updates. This is crucial because while the stream is attempting to reconnect, the state of the order book could have changed significantly. Therefore, retrieving a fresh snapshot ensures the state of the order book in the service aligns with the true state of the order book on the exchange.
+The `spawn_order_book_stream` function subscribes to a WebSocket stream of order book updates for the given pair. The WebSocket stream uses the `exchange_stream_buffer` variable to define how many messages to buffer the stream by, which helps manage potential back pressure or sudden bursts of updates. When a disconnection happens, this function handles reconnecting to the stream, ensuring no data is missed during the downtime by retrieving a snapshot of the orderbook before handling further stream updates. This is crucial because while the stream is attempting to reconnect, the state of the order book could have changed significantly.
 
 The `spawn_order_book_service` function returns a vector of the spawned tasks, allowing them to be managed, monitored, or awaited elsewhere in the application. All of the exchanges throughout the application implement the same approach, using a websocket stream and order book snapshots to retrieve real-time order book data, clean the data into a consistent format and send the price level updates to the aggregated order book.
 
 
 ## Order Book
+The `order_book` module is divided into two main components, price levels and order book structures. The `price_level` sub-module defines the `Bid` and `Ask` structs, lays out the rules for their ordering and contains trait definitions for order types.
+
+The other major component to the `order_book` module are the 'order book structures'.
+
+
 
 ## Server
   
