@@ -95,7 +95,7 @@ async fn main() -> eyre::Result<()> {
         BTreeSet::<Ask>::new(),
     );
 
-    tracing::info!("Spawning aggregated order book bid-ask service");
+    tracing::info!("Spawning aggregated order book bid-ask service for {pair:?}");
     //Spawn the bid ask service from the orderbook and the gRPC server
     let mut join_handles = vec![];
     join_handles.extend(aggregated_order_book.spawn_bid_ask_service(
