@@ -37,7 +37,7 @@ impl BuySide for BTreeSet<Bid> {
 
     //Get the best bid in the data structure
     fn get_best_bid(&self) -> Option<&Bid> {
-        self.iter().last()
+        self.last()
     }
 
     //Get the best "n" bids in the data structure
@@ -88,7 +88,7 @@ impl SellSide for BTreeSet<Ask> {
 
     //Get the best ask in the data structure
     fn get_best_ask(&self) -> Option<&Ask> {
-        self.iter().next()
+        self.first()
     }
 
     //Get the best "n" asks in the data structure
