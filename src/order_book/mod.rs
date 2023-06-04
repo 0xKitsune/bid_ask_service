@@ -230,21 +230,25 @@ where
                 let (updated_bids, updated_asks) = tokio::join!(bids_fut, asks_fut);
 
                 //Update the best n bids and asks if they have been updated
-                if let Some((best_bids, first_price, last)) = updated_bids {
+                if let Some((best_bids, top_bid_price, last)) = updated_bids {
                     best_n_bids = best_bids;
-                    best_bid_price = first_price;
+                    best_bid_price = top_bid_price;
                     last_bid = last;
                 }
 
                 //Update the best n asks and asks if they have been updated
-                if let Some((best_asks, first_price, last)) = updated_asks {
+                if let Some((best_asks, top_ask_price, last)) = updated_asks {
                     best_n_asks = best_asks;
-                    best_ask_price = first_price;
+                    best_ask_price = top_ask_price;
                     last_ask = last;
                 }
 
                 //Calculate the bid-ask spread and send the updated summary to the gRPC server
                 let bid_ask_spread = best_ask_price - best_bid_price;
+
+                tracing::info!(
+                    "Best bid price: {best_bid_price:?}, best ask price: {best_ask_price:?}, spread: {bid_ask_spread:?}"
+                );
 
                 let summary = Summary {
                     spread: bid_ask_spread,
