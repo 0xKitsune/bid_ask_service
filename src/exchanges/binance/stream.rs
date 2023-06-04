@@ -119,7 +119,7 @@ pub fn spawn_stream_handler(
                             continue;
                         } else {
                             if order_book_update.first_update_id <= last_update_id + 1
-                                && order_book_update.final_updated_id > last_update_id
+                                && order_book_update.final_updated_id >= last_update_id + 1
                             {
                                 //Collect bids and asks, sending the batch of price level updates through a channel to the aggregated order book
                                 let mut bids = vec![];
