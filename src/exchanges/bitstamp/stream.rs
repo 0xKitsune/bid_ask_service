@@ -216,12 +216,12 @@ pub struct OrderBookSnapshot {
     microtimestamp: u64,
     #[serde(
         rename = "bids",
-        deserialize_with = "exchange_utils::convert_array_items_to_f64"
+        deserialize_with = "exchange_utils::convert_array_len_2_to_f64"
     )]
     bids: Vec<[f64; 2]>,
     #[serde(
         rename = "asks",
-        deserialize_with = "exchange_utils::convert_array_items_to_f64"
+        deserialize_with = "exchange_utils::convert_array_len_2_to_f64"
     )]
     asks: Vec<[f64; 2]>,
 }
@@ -246,12 +246,12 @@ pub struct OrderBookUpdateData {
     microtimestamp: u64,
     #[serde(
         rename = "bids",
-        deserialize_with = "exchange_utils::convert_array_items_to_f64"
+        deserialize_with = "exchange_utils::convert_array_len_2_to_f64"
     )]
     pub bids: Vec<[f64; 2]>,
     #[serde(
         rename = "asks",
-        deserialize_with = "exchange_utils::convert_array_items_to_f64"
+        deserialize_with = "exchange_utils::convert_array_len_2_to_f64"
     )]
     pub asks: Vec<[f64; 2]>,
 }

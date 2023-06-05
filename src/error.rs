@@ -1,5 +1,7 @@
 use crate::{
-    exchanges::{binance::error::BinanceError, bitstamp::error::BitstampError},
+    exchanges::{
+        binance::error::BinanceError, bitstamp::error::BitstampError, kraken::error::KrakenError,
+    },
     order_book::error::OrderBookError,
     server::error::ServerError,
 };
@@ -12,6 +14,8 @@ pub enum BidAskServiceError {
     BinanceError(#[from] BinanceError),
     #[error("Bitstamp error")]
     BitstampError(#[from] BitstampError),
+    #[error("Kraken error")]
+    KrakenError(#[from] KrakenError),
     #[error("Server error")]
     ServerError(#[from] ServerError),
 }

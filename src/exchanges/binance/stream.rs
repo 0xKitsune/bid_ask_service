@@ -184,9 +184,9 @@ pub fn spawn_stream_handler(
 pub struct OrderBookSnapshot {
     #[serde(rename = "lastUpdateId")]
     last_update_id: u64,
-    #[serde(deserialize_with = "exchange_utils::convert_array_items_to_f64")]
+    #[serde(deserialize_with = "exchange_utils::convert_array_len_2_to_f64")]
     bids: Vec<[f64; 2]>,
-    #[serde(deserialize_with = "exchange_utils::convert_array_items_to_f64")]
+    #[serde(deserialize_with = "exchange_utils::convert_array_len_2_to_f64")]
     asks: Vec<[f64; 2]>,
 }
 
@@ -200,12 +200,12 @@ pub struct OrderBookUpdate {
     pub final_updated_id: u64,
     #[serde(
         rename = "b",
-        deserialize_with = "exchange_utils::convert_array_items_to_f64"
+        deserialize_with = "exchange_utils::convert_array_len_2_to_f64"
     )]
     pub bids: Vec<[f64; 2]>,
     #[serde(
         rename = "a",
-        deserialize_with = "exchange_utils::convert_array_items_to_f64"
+        deserialize_with = "exchange_utils::convert_array_len_2_to_f64"
     )]
     pub asks: Vec<[f64; 2]>,
 }

@@ -1,8 +1,8 @@
 pub mod binance;
-pub mod error;
-
 pub mod bitstamp;
+pub mod error;
 pub mod exchange_utils;
+pub mod kraken;
 
 use core::fmt;
 use std::str::FromStr;
