@@ -238,7 +238,7 @@ After finishing this build, there are a few considerations for upgrades/improvem
 ### Concurrency Model
 In the initial design of the program, channels were used to pass data between concurrent threads. Channels fit nicely into the producer-consumer pattern, simplifying the flow of data between different parts of the system. Additionally, the aggregated order book is updated frequently and sequentially, I originally thought that channels could be used to avoid the overhead of locking/unlocking a mutex or lock when using a `Mutex` or `RWLock`.
 
-However, there can be potential benefits when using options like `Arc<Mutex<T>>` or `Arc<RwLock<T>>` for certain situations. With channels, synchronization is implicit. You can send and receive messages, and the channel takes care of the rest. This can be great for preventing data races and other concurrency-related bugs. In contrast, approaches like `Arc<Mutex<T>>` involve explicit synchronization. You explicitly acquire the lock to a mutex to control access to the data. This gives you more control and can sometimes be more efficient, because you can avoid the overhead of sending and receiving messages.
+However, there can be potential benefits when using options like `Arc<Mutex<T>>` or `Arc<RwLock<T>>` for certain situations. With channels, synchronization is implicit. You can send and receive messages, and the channel takes care of the rest. In contrast, approaches like `Arc<Mutex<T>>` involve explicit synchronization. You explicitly acquire the lock to a mutex to control access to the data. This gives you more control and can sometimes be more efficient, because you can avoid the overhead of sending and receiving messages.
 
 It would be worthwhile to see how the two compare in performance. 
 
